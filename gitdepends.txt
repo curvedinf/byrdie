@@ -1,0 +1,5 @@
+# Git Dependencies for the Byrdie Framework
+# Format: <project_name>,<repository_url>,<version_or_branch>
+alpinejs,https://github.com/alpinejs/alpine,main
+django,https://github.com/django/django,main
+wove,https://github.com/curvedinf/wove,main

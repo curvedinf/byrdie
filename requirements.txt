@@ -1,0 +1,6 @@
+Django>=5.0
+wove
+pytest
+pytest-django
+pydantic
+django-ninja
