@@ -50,26 +50,37 @@ Byrdie's frontend interactivity will be powered by Alpine.js.
     *   Creating the global `byrdie` JavaScript object.
     *   Providing helper functions to bridge the gap between Byrdie's backend (e.g., proxied API routes) and Alpine's reactive frontend components.
 
-## 5. Proposed Directory Structure
+## 5. Proposed Development Directory Structure
+
+This structure represents the repository for the Byrdie framework itself.
 
 ```
-byrdie-project/
-├── app.py                  # A user's Byrdie application (can be a single file)
-├── templates/
-│   └── index.html
-├── components/
-│   └── note.html
-└── byrdie/                 # The Byrdie framework source
-    ├── __init__.py         # Exposes public APIs like route, runserver, Model
-    ├── routing.py          # The @route decorator and URL resolution logic
-    ├── models.py           # The Byrdie Model base class
-    ├── renderer/           # The custom template/component rendering engine
-    │   ├── __init__.py
-    │   ├── processor.py
-    │   └── cache.py        # The multi-tier caching implementation
-    ├── static/
-    │   └── js/
-    │       └── byrdie-alpine.js # The Alpine.js wrapper
-    └── vendor/
-        └── alpinejs/       # Git submodule for the Alpine.js source
+byrdie/
+├── src/
+│   └── byrdie/             # The main package source code
+│       ├── __init__.py     # Public API
+│       ├── routing.py      # @route decorator, etc.
+│       ├── models.py       # Byrdie Model base class
+│       ├── renderer/       # Custom template/component engine
+│       │   ├── __init__.py
+│       │   ├── processor.py
+│       │   └── cache.py    # Multi-tier caching
+│       ├── static/
+│       │   └── js/
+│       │       └── byrdie-alpine.js # Alpine.js wrapper
+│       └── vendor/
+│           └── alpinejs/   # Git submodule for Alpine.js source
+├── tests/                  # Unit and integration tests
+│   ├── __init__.py
+│   └── test_routing.py
+├── examples/               # Example Byrdie applications
+│   └── hello_world/
+│       ├── app.py
+│       ├── templates/
+│       └── components/
+├── docs/                   # Project documentation (like this file)
+│   └── project-structure.md
+├── pyproject.toml          # Project metadata, dependencies (e.g., django, wove)
+├── README.md
+└── .gitignore
 ```
