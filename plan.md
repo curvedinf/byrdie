@@ -38,15 +38,138 @@ This document outlines the development plan for byrdie, an opinionated Django wr
     *   **Default Tag:** Inside a `{% for note in notes %}` loop, `<note />` resolves to the default component for the `note` object.
     *   **Named Tag:** The syntax `<note:card />` resolves to the named "card" component for the `note` object, loading the `components/note_card.html` template.
     *   The relevant object (`note`) is implicitly passed into the component's template context.
+    *   **Base Template Injection:** View templates are treated as body-only fragments by default. They are automatically injected into a base template that provides the `<html>` and `<body>` structure. To add content to the document `<head>`, a template can define a `{% block head %}`.
 
 ### D. Convention-Driven & Clutter-Free
 
 *   **Goal:** Make the entire architecture implicit and predictable, guided by strong conventions.
 *   **Conventions:**
     *   **Routing:** `@route("/")` defines a page or API endpoint. An `api=True` parameter switches between the two.
-    *   **HTML Rendering:** A view function that does not have `api=True` implicitly renders a template matching its name (e.g., `def index()` renders `templates/index.html`) by returning a context dictionary.
+    *   **HTML Rendering:** A view function that does not have `api=True` implicitly renders a template matching its name (e.g., `def index()` renders `templates/index.html`). The rendered template is injected as the `<body>` of a complete HTML document.
     *   **Components:** A model `class Note(Model)` maps to a `<note>` tag (`components/note.html`). An entry in its `components` list, e.g. `"card"`, maps to a `<note:card>` tag (`components/note_card.html`).
     *   **Directory Structure:** Component templates live in `components/`. Page templates live in `templates/`.
+
+### E. The Byrdie Frontend Bridge
+
+*   **Goal:** To seamlessly connect backend model logic with frontend interactivity. The bridge allows developers to write Python methods on their models and call them directly from the frontend, with data automatically synchronized.
+*   **Mechanism:**
+    *   **Activation:** Add the `byrdie-frontend` attribute to a component's root tag (e.g., `<div class="note" byrdie-frontend>`). This activates the bridge for that component.
+    *   **State:** Byrdie automatically initializes the component's data context by serializing the model instance's fields. For a `Note` model, you can access `note.text` in Python and `text` in the component's frontend scope. Purely client-side state can be added using `x-data`.
+    *   **Actions:** Use the `@byrdie.frontend.action` decorator on a method in your `Model` class to expose it as a callable function on the frontend. This function becomes available via the `byrdie` object (e.g., `byrdie.save()`).
+    *   **Data Sync:** When a frontend action is called, its arguments are sent to the backend. Byrdie runs the corresponding Python method. If the method returns a dictionary, Byrdie uses it to update the component's state on the frontend, automatically refreshing the UI.
+    *   **Syntax:** The frontend bridge uses Alpine.js for its underlying reactivity and directives (`x-show`, `x-model`, `@click`, etc.).
+
+#### Example: In-place Editing
+
+Let's adapt the in-place editing example to this new, more direct approach.
+
+**1. The Model: `app.py`**
+
+We now add the `@frontend.action` decorator to a method directly on the `Note` model.
+
+```python
+# app.py (updated Note model)
+from byrdie import Model, frontend, models # ... etc
+
+class Note(Model):
+    text = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    # This action is exposed to the frontend.
+    @frontend.action
+    def save(self, new_text: str):
+        # The new text is passed as an argument from the frontend.
+        self.text = new_text
+        self.save()
+        # Return a dict to update the frontend component's state.
+        # This will update 'text' and set 'is_editing' to false.
+        return {"text": self.text, "is_editing": False}
+```
+
+**2. The Component Template: `components/note.html`**
+
+The component template uses the `byrdie-frontend` attribute to activate the bridge. It manages its own UI state (like `is_editing`) in an `x-data` attribute and calls the `byrdie.save()` action.
+
+```html
+<!-- components/note.html -->
+<div class="note" byrdie-frontend x-data="{ is_editing: false, edited_text: text }">
+    <!-- Show this when not editing -->
+    <div x-show="!is_editing">
+        <p @dblclick="is_editing = true; edited_text = text">{{ text }}</p>
+    </div>
+
+    <!-- Show this when editing -->
+    <div x-show="is_editing" x-cloak>
+        <input type="text" x-model="edited_text">
+        <button @click="byrdie.save(edited_text)">Save</button>
+        <button @click="is_editing = false">Cancel</button>
+    </div>
+
+    <small>Created: {{ note.created_at|date:"M d, Y" }}</small>
+</div>
+```
+
+### F. Automatic Async Parallelism with Wove
+
+*   **Goal:** Provide first-class support for structured concurrency, enabling developers to easily run async tasks in parallel within a view, powered by `curvedinf/wove`.
+*   **Mechanism:**
+    *   A view decorated with `@route(..., wove=True)` gets a `w` object injected by the router.
+    *   The developer uses `@w.do` to define tasks within the view. These tasks can be sync or async. `wove` handles running them in parallel.
+    *   The view function returns the `w` object itself.
+    *   After the view returns, Byrdie completes the `wove` execution context, which runs all the defined tasks concurrently.
+    *   Byrdie then automatically assembles the template context dictionary from the results of the executed tasks. The key for each result is the name of the function that produced it.
+
+#### Example: Parallel Database and API Calls
+
+```python
+# app.py (a view using wove)
+from byrdie import route, httpx
+from .models import Author
+
+@route("/books", wove=True)
+async def books_and_authors(request, w):
+    # This sync function will be run in a thread pool.
+    @w.do
+    def popular_authors() -> list[Author]:
+        return Author.objects.filter(is_popular=True)
+
+    # This async function will run on the main event loop.
+    @w.do
+    async def new_releases() -> list[dict]:
+        async with httpx.AsyncClient() as client:
+            r = await client.get("https://api.example.com/books/new")
+            return r.json()
+
+    # Wove runs popular_authors and new_releases in parallel.
+    # By returning 'w', we let Byrdie manage the results.
+    return w
+```
+
+**Template: `templates/books_and_authors.html`**
+
+Byrdie will render the template associated with the view function name (`books_and_authors.html`) and the context will contain the task results.
+
+```html
+<!-- templates/books_and_authors.html -->
+<h1>New Books and Popular Authors</h1>
+
+<h2>New Releases</h2>
+<ul>
+    {% for book in new_releases %}
+        <li>{{ book.title }}</li>
+    {% endfor %}
+</ul>
+
+<h2>Popular Authors</h2>
+<ul>
+    {% for author in popular_authors %}
+        <li>{{ author.name }}</li>
+    {% endfor %}
+</ul>
+```
 
 ## III. Developer Experience (DX): The "Hello, Byrdie" App
 
@@ -97,26 +220,26 @@ if __name__ == "__main__":
 
 ```html
 <!-- templates/index.html -->
-<html>
-<body>
-    <h1>My Notes</h1>
-    <div class="note-list">
-        {% for note in notes %}
-            <div style="margin-bottom: 2em; padding: 1em; border: 1px solid #ccc;">
-                <p><strong>Default view (from <code>&lt;note /&gt;</code>):</strong></p>
-                <!-- Renders the default component: 'components/note.html' -->
-                <note />
+{% block head %}
+    <title>My Notes</title>
+{% endblock %}
 
-                <hr style="margin: 1em 0;" />
+<h1>My Notes</h1>
+<div class="note-list">
+    {% for note in notes %}
+        <div style="margin-bottom: 2em; padding: 1em; border: 1px solid #ccc;">
+            <p><strong>Default view (from <code>&lt;note /&gt;</code>):</strong></p>
+            <!-- Renders the default component: 'components/note.html' -->
+            <note />
 
-                <p><strong>Card view (from <code>&lt;note:card /&gt;</code>):</strong></p>
-                <!-- Renders the specific 'card' component: 'components/note_card.html' -->
-                <note:card />
-            </div>
-        {% endfor %}
-    </div>
-</body>
-</html>
+            <hr style="margin: 1em 0;" />
+
+            <p><strong>Card view (from <code>&lt;note:card /&gt;</code>):</strong></p>
+            <!-- Renders the specific 'card' component: 'components/note_card.html' -->
+            <note:card />
+        </div>
+    {% endfor %}
+</div>
 ```
 
 ### C. The Component Templates
