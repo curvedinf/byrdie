@@ -31,8 +31,19 @@ if [ -f "$PROJECTS_FILE" ]; then
         echo "Checking out version/branch: $version..."
         git checkout "$version"
 
-        echo "Installing project $name in editable mode..."
-        pip install -e .
+        if [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+            echo "Found setup.py or pyproject.toml, treating as a Python project."
+            echo "Installing project $name in editable mode..."
+            pip install -e .
+        elif [ -f "package.json" ]; then
+            echo "Found package.json, treating as a JavaScript project."
+            echo "Installing NPM dependencies..."
+            npm install
+            echo "Building project..."
+            npm run build
+        else
+            echo "WARNING: Could not determine project type for $name. No package.json, setup.py, or pyproject.toml found. Skipping installation."
+        fi
 
         cd ../..
 
