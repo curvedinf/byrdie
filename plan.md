@@ -481,9 +481,85 @@ if __name__ == "__main__":
 </div>
 ```
 
-## IV. Integrating with Existing Django Projects
+## IV. Application Architecture: Scaling Your Project
 
-While Byrdie is designed to create standalone applications with minimal setup, it can also be integrated into existing Django projects to leverage its features for specific parts of an application. This allows developers to use Byrdie's rapid development capabilities for new features within a larger, traditional Django application. Here's a conceptual guide:
+While Byrdie's single-file approach is powerful for getting started, real-world applications often need more structure. This section explains how a Byrdie project can scale from a simple script to a well-organized, modular application.
+
+### A. From a Single `app.py` to a Modular Structure
+
+The single `app.py` is the heart of a simple Byrdie application, containing models, views, and the server entrypoint. As your project grows, you can break this file into a more organized directory structure without losing Byrdie's simplicity.
+
+The `app.py` script always remains the main entrypoint that calls `runserver()`. However, its role shifts from containing all application logic to importing and assembling components from other modules.
+
+A recommended structure mirrors familiar Python web framework patterns:
+
+```
+my_byrdie_project/
+├── app.py              # Main entrypoint: imports modules, calls runserver()
+├── settings.py         # Optional: Django-style settings
+├── blog/               # A feature-specific module ("app")
+│   ├── __init__.py
+│   ├── models.py       # Byrdie models related to the blog
+│   ├── views.py        # @route-decorated views for the blog
+│   └── schemas.py      # Byrdie schemas for the blog API
+├── core/
+│   ├── __init__.py
+│   └── components.py   # Shared components or logic
+├── templates/
+│   └── ...
+└── components/
+    └── ...
+```
+
+In this structure, your main `app.py` would look like this:
+
+```python
+# app.py
+from byrdie import runserver
+import settings
+
+# Import modules to register routes, models, etc.
+# by simply importing them, byrdie will discover them.
+import blog.views
+import blog.models
+
+if __name__ == "__main__":
+    # Pass the settings module to the server runner
+    runserver(settings=settings)
+```
+
+Byrdie automatically discovers models and routes from any imported modules, so no explicit registration is needed.
+
+### B. The Optional `settings.py`
+
+For configuration, Byrdie can use an optional `settings.py` file placed next to `app.py`. This file is identical in format to a Django settings file, making it instantly familiar to Django developers.
+
+You can define standard Django settings like:
+*   `SECRET_KEY`
+*   `DEBUG`
+*   `DATABASES`
+*   `INSTALLED_APPS` (to include third-party Django apps)
+*   `MIDDLEWARE`
+
+Byrdie automatically detects and uses `settings.py` if it exists in the same directory from which the app is being run. Alternatively, you can load a different configuration file by passing it to the `runserver` function: `runserver(settings=my_custom_settings)`. This provides a powerful and flexible way to manage configuration for different environments (development, production, etc.).
+
+### C. The Byrdie "App" vs. the Django "App"
+
+In Django, an "app" is a formal, self-contained package that must be registered in `INSTALLED_APPS`. It encapsulates a specific feature (e.g., a blog, a poll).
+
+Byrdie simplifies this concept:
+*   **No Formal "App"**: In Byrdie, there is no formal concept of an "app" that requires registration. A "Byrdie app" is simply a Python module or package (like the `blog/` directory above) where you organize related code.
+*   **Discovery over Registration**: You don't need to add your `blog` module to a list like `INSTALLED_APPS`. As long as the module (e.g., `blog.views`) is imported by your main `app.py` before `runserver()` is called, Byrdie will discover its routes, models, and other components.
+
+This approach reduces boilerplate and keeps the focus on writing application code, not on framework configuration.
+
+### D. Byrdie and Django: Project vs. App
+
+A key design decision in Byrdie is the removal of Django's "project" layer.
+*   **Django**: A "project" is a container for configuration and one or more "apps". This creates a nested directory structure that can be confusing for beginners.
+*   **Byrdie**: A Byrdie application *is* the project. The root directory containing your `app.py` is the top level. This flattens the structure and simplifies the mental model.
+
+Despite this simplification, Byrdie remains fully interoperable with the Django ecosystem. While Byrdie is designed to create standalone applications with minimal setup, it can also be integrated into existing Django projects to leverage its features for specific parts of an application. This allows developers to use Byrdie's rapid development capabilities for new features within a larger, traditional Django application. Here's a conceptual guide:
 
 1.  **Installation**: Add `byrdie` to your project's dependencies (e.g., in `requirements.txt`).
 2.  **Create a Byrdie App**: Use the standard Django command to create a new app: `python manage.py startapp my_byrdie_app`.
@@ -512,11 +588,11 @@ While Byrdie is designed to create standalone applications with minimal setup, i
 
 This approach allows you to build a new feature using Byrdie's component-based, convention-driven style while keeping the rest of your Django project structure intact. It provides a flexible path for gradually adopting Byrdie or using it for specific, well-suited parts of a larger system.
 
-## V. Technical Implementation Sketch
+## V. Technical Implementation Sketch (Renumbered)
 
 *   This section will be for brainstorming the "how." We'll think about the core `byrdie` application, the component rendering pipeline, and how we'll manage static assets.
 
-## VI. Roadmap
+## VI. Roadmap (Renumbered)
 
 *   **Phase 1: Proof of Concept:**
     *   Build the `byrdie.quickstart()` entrypoint.
