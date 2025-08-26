@@ -61,6 +61,7 @@ This document outlines the development plan for byrdie, an opinionated Django wr
     *   **Activation:** The Frontend Bridge is activated by using a model's name as an HTML tag (e.g., `<note>`). This replaces the need for a generic `div` with a special attribute. For convenience, Byrdie will also automatically add the model's name as a CSS class to the rendered element (e.g., `class="note"`).
     *   **State:** Byrdie automatically initializes the component's data context by serializing the model's fields that are marked with `expose=True`. All exposed fields and methods are injected directly into the component's Alpine.js scope. Purely client-side state can be added using `x-data`.
     *   **Exposed Methods:** Use the `@expose` decorator on a method in your `Model` class to make it callable from the frontend. This function becomes available directly in the component's scope (e.g., `save()`).
+    *   **Proxied API Routes:** API routes defined in Python with `@route(api=True)` are automatically exposed as functions on the global `byrdie` JavaScript object. For example, a Python route `def list_notes(...)` becomes `byrdie.list_notes()` in JavaScript. These functions handle the `fetch` request, JSON parsing, and model hydration internally, returning a promise that resolves with fully interactive Byrdie component instances. This creates a seamless connection between your backend and frontend code.
     *   **Data Sync:** When an exposed method is called, its arguments are sent to the backend. Byrdie runs the corresponding Python method. If the method returns a dictionary, Byrdie uses it to update the component's state on the frontend, automatically refreshing the UI.
     *   **Syntax:** The frontend bridge uses Alpine.js for its underlying reactivity and directives (`x-show`, `x-model`, `@click`, etc.).
 
@@ -116,6 +117,72 @@ The component template is now defined with the model's name as its root element.
     <small>Created: {{ created_at|date:"M d, Y" }}</small>
 </note>
 ```
+
+#### Example: Working with Lists from an API
+
+This example shows how to build a dynamic list of components by fetching data from an API.
+
+**1. The API Endpoint: `app.py`**
+
+We'll use the same `list_notes` API endpoint defined in the "Hello, Byrdie" application. It fetches all `Note` objects and returns them as a JSON array.
+
+```python
+# in app.py
+@route(api=True)
+def list_notes(request, w):
+    return Note.objects.all()
+```
+
+**2. The Frontend Component: `templates/note_list_page.html`**
+
+This component will fetch the notes from the API when it loads, hydrate them into interactive Byrdie components, and then display them. Each note in the list will have the same in-place editing functionality as the previous example.
+
+```html
+<!-- templates/note_list_page.html -->
+<div x-data="{ notes: [] }" x-init="
+    byrdie.list_notes().then(data => {
+        notes = data;
+    })
+">
+    <h1>My Notes (from API)</h1>
+
+    <template x-for="note in notes" :key="note.id">
+        <div class="note-container" style="border: 1px solid #ccc; padding: 1em; margin-bottom: 1em;">
+            <!--
+                Here, we are dynamically rendering the 'note' component.
+                Since the 'note' object in our loop has been hydrated,
+                it contains all the exposed data and methods.
+                We can use x-data to pass the note object into the component's scope.
+            -->
+            <div x-data="note">
+                <!-- This is the same in-place editing UI from the previous example -->
+                <note x-data="{ is_editing: false, edited_text: text }">
+                    <!-- Show this when not editing -->
+                    <div x-show="!is_editing">
+                        <p @dblclick="is_editing = true; edited_text = text">{{ text }}</p>
+                    </div>
+
+                    <!-- Show this when editing -->
+                    <div x-show="is_editing" x-cloak>
+                        <input type="text" x-model="edited_text">
+                        <button @click="save(edited_text)">Save</button>
+                        <button @click="is_editing = false">Cancel</button>
+                    </div>
+
+                    <small>Created: {{ new Date(created_at).toLocaleDateString() }}</small>
+                </note>
+            </div>
+        </div>
+    </template>
+</div>
+```
+
+In this example:
+- The main `div` calls `byrdie.list_notes()`. This function fetches the data, automatically hydrates the JSON response into interactive Byrdie components, and returns a promise that resolves with the final list of components.
+- The `<template x-for="note in notes">` iterates through the hydrated notes.
+- The `x-data="note"` on the inner `div` is the key part. It makes the properties of the current `note` object (like `text`, `created_at`, and the `save` method) available to all the elements inside it, including the `<note>` component.
+- The `<note>` component itself can then use `save()` directly, because it was made available by the `x-data="note"` directive on its parent.
+- We also use `new Date(created_at).toLocaleDateString()` to format the date, as the JSON value from the server is a string.
 
 ### F. Concurrent by Default with Wove
 
