@@ -19,8 +19,13 @@ This document outlines the development plan for byrdie, an opinionated Django wr
 *   **Goal:** Combine project setup, HTML page rendering, and API endpoint creation into a single, intuitive flow.
 *   **Mechanism:**
     *   A single `runserver()` function starts the entire application.
-    *   Routes are defined using the `@route("/")` decorator. Byrdie automatically discovers and registers them.
-    *   The decorator includes an `api=True` parameter that switches its behavior from an HTML-rendering view to a JSON API endpoint, with functionality inspired by Django Ninja (automatic serialization, API documentation, etc.).
+    *   **Routes are defined using the `@route()` decorator.** The path argument is optional.
+        *   **Explicit Path:** You can provide a path string, like `@route("/my-custom-path")`.
+        *   **Implicit Path:** If no path is provided, Byrdie generates one from the function name. `index` is a special case that maps to `/`. For other functions, underscores are converted to dashes (`-`) and double underscores to slashes (`/`). For example, `def user__profile()` becomes `/user/profile`.
+    *   **API routes are automatically prefixed.** If `api=True` is set, the final route will be automatically prefixed with `/api`. For example, `@route(api=True) def list_notes()` generates the path `/api/list-notes`.
+    *   **API serialization is also automatic.**
+        *   **Explicit Schema:** For complex cases, you can provide a Pydantic-style Schema in the function's return type hint (e.g., `-> list[MySchema]`). Byrdie will use this for serialization and API documentation.
+        *   **Default Schema (Implicit):** If no schema is provided, Byrdie will create a default schema from the model fields that have `expose=True` set.
 
 ### B. Unified Model-Component Architecture
 
@@ -44,7 +49,7 @@ This document outlines the development plan for byrdie, an opinionated Django wr
 
 *   **Goal:** Make the entire architecture implicit and predictable, guided by strong conventions.
 *   **Conventions:**
-    *   **Routing:** `@route("/")` defines a page or API endpoint. An `api=True` parameter switches between the two.
+    *   **Routing:** Use `@route()` to define a page or API endpoint. The path is optional and can be generated from the function name (e.g., `def user__profile()` becomes `/user/profile`). API routes (`api=True`) are automatically prefixed with `/api`.
     *   **HTML Rendering:** A view function that does not have `api=True` implicitly renders a template matching its name (e.g., `def index()` renders `templates/index.html`). The rendered template is injected as the `<body>` of a complete HTML document.
     *   **Components:** A model `class Note(Model)` maps to a `<note>` tag (`components/note.html`). An entry in its `components` list, e.g. `"card"`, maps to a `<note:card>` tag (`components/note_card.html`).
     *   **Directory Structure:** Component templates live in `components/`. Page templates live in `templates/`.
@@ -53,33 +58,33 @@ This document outlines the development plan for byrdie, an opinionated Django wr
 
 *   **Goal:** To seamlessly connect backend model logic with frontend interactivity. The bridge allows developers to write Python methods on their models and call them directly from the frontend, with data automatically synchronized.
 *   **Mechanism:**
-    *   **Activation:** Add the `byrdie-frontend` attribute to a component's root tag (e.g., `<div class="note" byrdie-frontend>`). This activates the bridge for that component.
-    *   **State:** Byrdie automatically initializes the component's data context by serializing the model instance's fields. For a `Note` model, you can access `note.text` in Python and `text` in the component's frontend scope. Purely client-side state can be added using `x-data`.
-    *   **Actions:** Use the `@byrdie.frontend.action` decorator on a method in your `Model` class to expose it as a callable function on the frontend. This function becomes available via the `byrdie` object (e.g., `byrdie.save()`).
-    *   **Data Sync:** When a frontend action is called, its arguments are sent to the backend. Byrdie runs the corresponding Python method. If the method returns a dictionary, Byrdie uses it to update the component's state on the frontend, automatically refreshing the UI.
+    *   **Activation:** The Frontend Bridge is activated by using a model's name as an HTML tag (e.g., `<note>`). This replaces the need for a generic `div` with a special attribute. For convenience, Byrdie will also automatically add the model's name as a CSS class to the rendered element (e.g., `class="note"`).
+    *   **State:** Byrdie automatically initializes the component's data context by serializing the model's fields that are marked with `expose=True`. Purely client-side state can be added using `x-data`.
+    *   **Exposed Methods:** Use the `@expose` decorator on a method in your `Model` class to make it callable from the frontend. This function becomes available via the `byrdie` object (e.g., `byrdie.save()`).
+    *   **Data Sync:** When an exposed method is called, its arguments are sent to the backend. Byrdie runs the corresponding Python method. If the method returns a dictionary, Byrdie uses it to update the component's state on the frontend, automatically refreshing the UI.
     *   **Syntax:** The frontend bridge uses Alpine.js for its underlying reactivity and directives (`x-show`, `x-model`, `@click`, etc.).
 
 #### Example: In-place Editing
 
-Let's adapt the in-place editing example to this new, more direct approach.
+Let's adapt the in-place editing example to this new, more elegant syntax.
 
 **1. The Model: `app.py`**
 
-We now add the `@frontend.action` decorator to a method directly on the `Note` model.
+The model definition remains the same, with `@expose` on the `save` method.
 
 ```python
 # app.py (updated Note model)
-from byrdie import Model, frontend, models # ... etc
+from byrdie import Model, expose, models # ... etc
 
 class Note(Model):
-    text = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
+    text = models.CharField(max_length=255, expose=True)
+    created_at = models.DateTimeField(auto_now_add=True, expose=True)
 
     class Meta:
         ordering = ["-created_at"]
 
-    # This action is exposed to the frontend.
-    @frontend.action
+    # This method is exposed to the frontend.
+    @expose
     def save(self, new_text: str):
         # The new text is passed as an argument from the frontend.
         self.text = new_text
@@ -91,11 +96,11 @@ class Note(Model):
 
 **2. The Component Template: `components/note.html`**
 
-The component template uses the `byrdie-frontend` attribute to activate the bridge. It manages its own UI state (like `is_editing`) in an `x-data` attribute and calls the `byrdie.save()` action.
+The component template is now defined with the model's name as its root element. This activates the bridge.
 
 ```html
 <!-- components/note.html -->
-<div class="note" byrdie-frontend x-data="{ is_editing: false, edited_text: text }">
+<note x-data="{ is_editing: false, edited_text: text }">
     <!-- Show this when not editing -->
     <div x-show="!is_editing">
         <p @dblclick="is_editing = true; edited_text = text">{{ text }}</p>
@@ -108,49 +113,56 @@ The component template uses the `byrdie-frontend` attribute to activate the brid
         <button @click="is_editing = false">Cancel</button>
     </div>
 
-    <small>Created: {{ note.created_at|date:"M d, Y" }}</small>
-</div>
+    <small>Created: {{ created_at|date:"M d, Y" }}</small>
+</note>
 ```
 
-### F. Automatic Async Parallelism with Wove
+### F. Concurrent by Default with Wove
 
-*   **Goal:** Provide first-class support for structured concurrency, enabling developers to easily run async tasks in parallel within a view, powered by `curvedinf/wove`.
+*   **Goal:** Make structured concurrency a core, effortless part of development. Byrdie embraces a concurrent-by-default philosophy, powered by `curvedinf/wove`.
 *   **Mechanism:**
-    *   A view decorated with `@route(..., wove=True)` gets a `w` object injected by the router.
-    *   The developer uses `@w.do` to define tasks within the view. These tasks can be sync or async. `wove` handles running them in parallel.
-    *   The view function returns the `w` object itself.
-    *   After the view returns, Byrdie completes the `wove` execution context, which runs all the defined tasks concurrently.
-    *   Byrdie then automatically assembles the template context dictionary from the results of the executed tasks. The key for each result is the name of the function that produced it.
+    *   **Wove by Default:** The `wove` integration is enabled for all routes by default, injecting a `w` object into every view function. This encourages developers to write non-blocking code from the start.
+    *   **Opt-out:** You can disable this behavior on a per-route basis by using `@route(wove=False)`.
+    *   **Dependency Injection:** `wove` automatically builds a dependency graph of your tasks. If a task function has a parameter with the same name as another task, `wove` will wait for the dependency to finish and inject its result.
+    *   **Automatic Context:** The view function does not need a `return` statement. Byrdie automatically executes the defined tasks and assembles the template context from their results.
 
-#### Example: Parallel Database and API Calls
+#### Example: Dynamic Task Dependencies
+
+This example demonstrates how `wove` can dynamically resolve dependencies. The `get_books_by_authors` task depends on the result of `get_popular_authors`, and `wove` will wait for the first task to complete before starting the second.
 
 ```python
 # app.py (a view using wove)
-from byrdie import route, httpx
-from .models import Author
+from byrdie import route
+from .models import Author, Book
 
-@route("/books", wove=True)
-async def books_and_authors(request, w):
-    # This sync function will be run in a thread pool.
+@route() # wove is enabled by default
+def author_showcase(request, w):
+    # This task runs first, independently.
     @w.do
-    def popular_authors() -> list[Author]:
-        return Author.objects.filter(is_popular=True)
+    def get_popular_authors() -> list[Author]:
+        return Author.objects.filter(is_popular=True).limit(5)
 
-    # This async function will run on the main event loop.
+    # This task depends on the result of the one above. Wove injects the
+    # result by matching the parameter name `get_popular_authors` to the
+    # function name of the task.
     @w.do
-    async def new_releases() -> list[dict]:
-        async with httpx.AsyncClient() as client:
-            r = await client.get("https://api.example.com/books/new")
-            return r.json()
+    def get_books_by_authors(get_popular_authors: list) -> dict:
+        books_by_author = {}
+        for author in get_popular_authors:
+            # Assuming a related name of 'books' on the Author model
+            books_by_author[author.name] = list(author.books.all())
+        return books_by_author
 
-    # Wove runs popular_authors and new_releases in parallel.
-    # By returning 'w', we let Byrdie manage the results.
-    return w
+    # No return statement is needed. The template context will be:
+    # {
+    #   'get_popular_authors': [...],
+    #   'get_books_by_authors': {...}
+    # }
 ```
 
-**Template: `templates/books_and_authors.html`**
+**Template: `templates/author_showcase.html`**
 
-Byrdie will render the template associated with the view function name (`books_and_authors.html`) and the context will contain the task results.
+The template receives the results of the `wove` tasks as top-level context variables.
 
 ```html
 <!-- templates/books_and_authors.html -->
@@ -180,17 +192,14 @@ The following files demonstrate the complete, polished developer experience, sho
 ```python
 # app.py
 import datetime
-from byrdie import Model, route, runserver, models, Schema
+from byrdie import Model, route, runserver, models
 
-# A Pydantic-style schema for the API endpoint
-class NoteSchema(Schema):
-    text: str
-    created_at: datetime.datetime
-
-# The Model defines the data structure and its component views.
+# The Model defines the data structure. Fields with `expose=True`
+# are automatically included in default API responses and are
+# available to the Byrdie Frontend Bridge.
 class Note(Model):
-    text = models.CharField(max_length=255)
-    created_at = models.DateTimeField(auto_now_add=True)
+    text = models.CharField(max_length=255, expose=True)
+    created_at = models.DateTimeField(auto_now_add=True, expose=True)
 
     # Defines an additional, named component view for this model.
     # This 'card' view will map to 'components/note_card.html'.
@@ -199,16 +208,19 @@ class Note(Model):
     class Meta:
         ordering = ["-created_at"]
 
-# View for the HTML page
-@route("/")
-def index(request):
+# The view for the root URL. The function name `index` is a special
+# case that automatically maps to `/`.
+# The `w` parameter is injected by default for concurrency.
+@route()
+def index(request, w):
     if not Note.objects.exists():
         Note.objects.create(text="This note is rendered by byrdie's magic!")
     return {"notes": Note.objects.all()}
 
-# View for the JSON API
-@route("/api/notes", api=True)
-def list_notes(request) -> list[NoteSchema]:
+# An API view. The route is implicitly generated from the function
+# name as `/api/list-notes`. `w` is also available here.
+@route(api=True)
+def list_notes(request, w):
     return Note.objects.all()
 
 # The entrypoint runs the server, including the web and API routes.
