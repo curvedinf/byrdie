@@ -123,46 +123,54 @@ The component template is now defined with the model's name as its root element.
 *   **Mechanism:**
     *   **Wove by Default:** The `wove` integration is enabled for all routes by default, injecting a `w` object into every view function. This encourages developers to write non-blocking code from the start.
     *   **Opt-out:** You can disable this behavior on a per-route basis by using `@route(wove=False)`.
-    *   **Dependency Injection:** `wove` automatically builds a dependency graph of your tasks. If a task function has a parameter with the same name as another task, `wove` will wait for the dependency to finish and inject its result.
+    *   **Dependency Injection:** `wove` automatically builds a dependency graph of your tasks. A task can depend on the result of another by having a parameter with the same name as the dependency task.
+    *   **Dynamic Mapping:** To run a task for each item in the result of another task, pass the name of the dependency task to the `@w.do()` decorator (e.g., `@w.do("my_list_task")`).
     *   **Automatic Context:** The view function does not need a `return` statement. Byrdie automatically executes the defined tasks and assembles the template context from their results.
 
-#### Example: Dynamic Task Dependencies
+#### Example: Dynamic Task Mapping
 
-This example demonstrates how `wove` can dynamically resolve dependencies. The `get_books_by_authors` task depends on the result of `get_popular_authors`, and `wove` will wait for the first task to complete before starting the second.
+This example shows how `wove` can dynamically run tasks based on the output of a previous task.
+
+1.  The `get_popular_authors` task runs first, fetching a list of authors.
+2.  The `@w.do("get_popular_authors")` decorator on `get_author_stats` tells `wove` to run an instance of `get_author_stats` for *each author* in the result of the first task. All instances run concurrently.
+3.  The `compile_report` task then depends on the collected results of all `get_author_stats` runs.
 
 ```python
 # app.py (a view using wove)
 from byrdie import route
-from .models import Author, Book
+from .models import Author
 
 @route() # wove is enabled by default
-def author_showcase(request, w):
-    # This task runs first, independently.
+def author_report(request, w):
+    # Task 1: Get a list of authors.
     @w.do
     def get_popular_authors() -> list[Author]:
-        return Author.objects.filter(is_popular=True).limit(5)
+        return Author.objects.filter(is_popular=True).limit(3)
 
-    # This task depends on the result of the one above. Wove injects the
-    # result by matching the parameter name `get_popular_authors` to the
-    # function name of the task.
+    # Task 2: Get stats for each author. This task is mapped over the
+    # result of `get_popular_authors`. It will run concurrently for each author.
+    @w.do("get_popular_authors")
+    def get_author_stats(author: Author) -> dict:
+        # The parameter `author` receives each item from the mapped list.
+        return {
+            "name": author.name,
+            "book_count": author.books.count(),
+            "first_book_year": author.books.order_by('year').first().year
+        }
+
+    # Task 3: Compile a final report. This depends on the list of results
+    # from all the `get_author_stats` task instances.
     @w.do
-    def get_books_by_authors(get_popular_authors: list) -> dict:
-        books_by_author = {}
-        for author in get_popular_authors:
-            # Assuming a related name of 'books' on the Author model
-            books_by_author[author.name] = list(author.books.all())
-        return books_by_author
-
-    # No return statement is needed. The template context will be:
-    # {
-    #   'get_popular_authors': [...],
-    #   'get_books_by_authors': {...}
-    # }
+    def compile_report(get_author_stats: list) -> dict:
+        return {
+            "report_name": "Popular Author Stats",
+            "author_stats": get_author_stats # This is a list of dicts
+        }
 ```
 
-**Template: `templates/author_showcase.html`**
+**Template: `templates/author_report.html`**
 
-The template receives the results of the `wove` tasks as top-level context variables.
+The template can access the results of any task by its function name. Here we use the final `compile_report` result.
 
 ```html
 <!-- templates/books_and_authors.html -->
