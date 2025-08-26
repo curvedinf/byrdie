@@ -27,6 +27,124 @@ This document outlines the development plan for byrdie, an opinionated Django wr
         *   **Explicit Schema:** For complex cases, you can provide a Pydantic-style Schema in the function's return type hint (e.g., `-> list[MySchema]`). Byrdie will use this for serialization and API documentation.
         *   **Default Schema (Implicit):** If no schema is provided, Byrdie will create a default schema from the model fields that have `expose=True` set.
 
+        *   **Advanced Schemas: Alternate Views and Custom Structures:** While Byrdie's implicit schemas are great for getting started, you often need more control over how your API presents data. You might want different "views" of the same model for public vs. private APIs, or you might need to define a data structure that doesn't map directly to a model at all. Byrdie provides two powerful ways to handle this: `ModelSchema` for alternate model views, and `Schema` for completely custom data structures.
+
+            *   **Alternate Model Schemas:** An `ModelSchema` allows you to define an alternate serialization schema for one of your existing models. It inherits the exposed fields and methods from the parent model by default, but you can precisely control what is included or excluded. This is perfect for creating variations of your API output without duplicating logic. For example, imagine you have a `Book` model, but you want a private version of the API that exposes a `private_function` and the full `text`, while hiding another field.
+
+                ```python
+                # In your app.py, alongside your models
+                class PrivateBook(ModelSchema):
+                    # The name of the model this schema is for
+                    model = "Book"
+
+                    # Explicitly expose fields or methods.
+                    # This inherits from the model's own exposed items.
+                    exposed = ["text", "private_function"]
+
+                    # Hide fields that might otherwise be exposed.
+                    hidden = ["other_field",]
+
+                # You can then use this in your API view
+                @route(api=True)
+                def get_private_book_details(request, w) -> PrivateBook:
+                    @w.do
+                    def private_book():
+                        return Book.objects.first()
+                ```
+
+                Key features of `ModelSchema`:
+                *   **Inheritance:** It automatically inherits all fields and methods exposed on the base model.
+                *   **Control:** Use `exposed` to add new fields/methods to the output and `hidden` to remove them.
+                *   **Reusability:** Define it once and use it in any API view that returns a `Book`. You can even inherit from other `ModelSchema` classes to build up complex views.
+
+            *   **Custom Schemas:** Sometimes your API needs to return data that doesn't match any of your models. It might be an aggregation of data from multiple sources, or a specific structure required by a frontend component. For these cases, you can use a `Schema`, which works just like a standard Pydantic or Ninja schema. Define a class that inherits from `byrdie.Schema` and add your fields with type hints. Byrdie will automatically use it to structure your API response.
+
+                **Note on Instantiation:** Schemas are designed to be instantiated directly using their constructor. The constructor is flexible, accepting either keyword arguments (e.g., `MySchema(field=value)`) or a single positional dictionary (e.g., `MySchema({"field": "value"})`). The dictionary-based constructor is particularly useful as it supports automatic type coercion, converting string values from the dictionary into the appropriate field types defined in the schema. While returning a raw dictionary from a view that matches the schema fields is also supported, direct instantiation is the primary and recommended approach.
+
+                ```python
+                # In your app.py
+                from byrdie import Schema
+                from datetime import date
+
+                class WeeklyReport(Schema):
+                    start_date: date
+                    end_date: date
+                    new_users: int
+                    notes_created: int
+                    status: str = "OK"
+
+                # Use it in an API view
+                @route(api=True)
+                def weekly_report(request, w) -> WeeklyReport:
+                    # When using wove in an API, the result of the final task
+                    # is automatically serialized using the view's schema.
+                    @w.do
+                    def report():
+                        # The primary method is to return a schema instance.
+                        return WeeklyReport(
+                            start_date=date(2023, 1, 1),
+                            end_date=date(2023, 1, 7),
+                            new_users=15,
+                            notes_created=120,
+                            status="OK",
+                        )
+                ```
+
+                This gives you full freedom to design your API outputs exactly as you need them, with the benefits of automatic validation and documentation.
+
+            *   **Schema-Owned Routes:** For better organization, you can define routes directly on your `Schema` classes. This co-locates the data definition with the endpoint that serves it and allows Byrdie to infer the response type automatically.
+
+                **Classmethod Routes for Collections:** If a route is decorated with `@classmethod`, Byrdie expects it to return a collection of items. The response will be automatically serialized as a `list` of the parent `Schema`.
+
+                ```python
+                class WeeklyReport(Schema):
+                    # ... fields ...
+
+                    @classmethod
+                    @route(api=True)
+                    def list_all(cls, request, w):
+                        # Implicitly returns: list[WeeklyReport]
+                        @w.do
+                        def reports_data():
+                            # ... logic to return a list of report instances ...
+                            return [
+                                WeeklyReport(start_date=date(2023, 1, 1), end_date=date(2023, 1, 7), new_users=15, notes_created=120, status="OK"),
+                                WeeklyReport(start_date=date(2023, 1, 8), end_date=date(2023, 1, 14), new_users=22, notes_created=150, status="OK")
+                            ]
+                ```
+
+                **Instance Method Routes for Single Items:** A regular method route takes `self` as its first argument. Byrdie will interpret its return type as the `Schema` class itself. This is suitable for detail views or actions on a single object, where Byrdie would provide the hydrated `self` object based on a path parameter.
+
+                ```python
+                class WeeklyReport(Schema):
+                    # ... fields ...
+
+                    # This route would likely correspond to a path like /api/weekly-report/{id}
+                    @route(api=True)
+                    def refresh(self, request, w):
+                        # Implicitly returns: WeeklyReport
+                        @w.do
+                        def refreshed_data():
+                            # ... can operate on self ...
+                            self.status = "Refreshed"
+                            return self
+                ```
+
+                **Overriding Return Types:** In either case, the implicit return type can be explicitly overridden with a standard Python type hint (e.g., `-> int`) if the route needs to return a different data structure.
+
+                ```python
+                class WeeklyReport(Schema):
+                    # ... fields ...
+
+                    @classmethod
+                    @route(api=True)
+                    def count(cls, request, w) -> int:
+                        # Explicitly returns: int
+                        @w.do
+                        def total():
+                            return 150
+                ```
+
 ### B. Unified Model-Component Architecture
 
 *   **Goal:** Unify the concepts of a database model and a renderable component, allowing a single model to have multiple, distinct presentation formats.
