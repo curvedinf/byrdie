@@ -26,6 +26,24 @@ This document outlines the development plan for byrdie, an opinionated Django wr
     *   **API serialization is also automatic.**
         *   **Explicit Schema:** For complex cases, you can provide a Pydantic-style Schema in the function's return type hint (e.g., `-> list[MySchema]`). Byrdie will use this for serialization and API documentation.
         *   **Default Schema (Implicit):** If no schema is provided, Byrdie will create a default schema from the model fields that have `expose=True` set.
+    *   **Route-level Security:** Routes can be secured directly within the decorator.
+        *   **Authentication Check:** Use `@route(is_authenticated=True)` to ensure that only logged-in users can access a view. If the user is not authenticated, they will be redirected to the login page.
+        *   **Permission Check:** For more granular control, use `@route(has_permissions=...)`. This parameter accepts a callable (e.g., a function) that takes the `request` object as an argument and should return `True` if the user has permission, and `False` otherwise. If the check fails, a 403 Forbidden error is returned.
+
+        ```python
+        # A simple authentication check
+        @route(is_authenticated=True)
+        def user_dashboard(request, w):
+            # ... view logic for authenticated users ...
+
+        # A custom permission check
+        def is_editor(request):
+            return request.user.is_staff
+
+        @route(has_permissions=is_editor)
+        def edit_article(request, w):
+            # ... view logic for editors ...
+        ```
 
         *   **Advanced Schemas: Alternate Views and Custom Structures:** While Byrdie's implicit schemas are great for getting started, you often need more control over how your API presents data. You might want different "views" of the same model for public vs. private APIs, or you might need to define a data structure that doesn't map directly to a model at all. Byrdie provides two powerful ways to handle this: `ModelSchema` for alternate model views, and `Schema` for completely custom data structures.
 
