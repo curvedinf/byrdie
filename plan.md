@@ -59,8 +59,8 @@ This document outlines the development plan for byrdie, an opinionated Django wr
 *   **Goal:** To seamlessly connect backend model logic with frontend interactivity. The bridge allows developers to write Python methods on their models and call them directly from the frontend, with data automatically synchronized.
 *   **Mechanism:**
     *   **Activation:** The Frontend Bridge is activated by using a model's name as an HTML tag (e.g., `<note>`). This replaces the need for a generic `div` with a special attribute. For convenience, Byrdie will also automatically add the model's name as a CSS class to the rendered element (e.g., `class="note"`).
-    *   **State:** Byrdie automatically initializes the component's data context by serializing the model's fields that are marked with `expose=True`. Purely client-side state can be added using `x-data`.
-    *   **Exposed Methods:** Use the `@expose` decorator on a method in your `Model` class to make it callable from the frontend. This function becomes available via the `byrdie` object (e.g., `byrdie.save()`).
+    *   **State:** Byrdie automatically initializes the component's data context by serializing the model's fields that are marked with `expose=True`. All exposed fields and methods are injected directly into the component's Alpine.js scope. Purely client-side state can be added using `x-data`.
+    *   **Exposed Methods:** Use the `@expose` decorator on a method in your `Model` class to make it callable from the frontend. This function becomes available directly in the component's scope (e.g., `save()`).
     *   **Data Sync:** When an exposed method is called, its arguments are sent to the backend. Byrdie runs the corresponding Python method. If the method returns a dictionary, Byrdie uses it to update the component's state on the frontend, automatically refreshing the UI.
     *   **Syntax:** The frontend bridge uses Alpine.js for its underlying reactivity and directives (`x-show`, `x-model`, `@click`, etc.).
 
@@ -109,7 +109,7 @@ The component template is now defined with the model's name as its root element.
     <!-- Show this when editing -->
     <div x-show="is_editing" x-cloak>
         <input type="text" x-model="edited_text">
-        <button @click="byrdie.save(edited_text)">Save</button>
+        <button @click="save(edited_text)">Save</button>
         <button @click="is_editing = false">Cancel</button>
     </div>
 
@@ -122,18 +122,19 @@ The component template is now defined with the model's name as its root element.
 *   **Goal:** Make structured concurrency a core, effortless part of development. Byrdie embraces a concurrent-by-default philosophy, powered by `curvedinf/wove`.
 *   **Mechanism:**
     *   **Wove by Default:** The `wove` integration is enabled for all routes by default, injecting a `w` object into every view function. This encourages developers to write non-blocking code from the start.
+    *   **Task Naming:** Wove tasks should be named with nouns (e.g., `popular_authors`) instead of verbs (e.g., `get_popular_authors`). This reinforces the idea that a task represents its output data, not just its action.
     *   **Opt-out:** You can disable this behavior on a per-route basis by using `@route(wove=False)`.
     *   **Dependency Injection:** `wove` automatically builds a dependency graph of your tasks. A task can depend on the result of another by having a parameter with the same name as the dependency task.
-    *   **Dynamic Mapping:** To run a task for each item in the result of another task, pass the name of the dependency task to the `@w.do()` decorator (e.g., `@w.do("my_list_task")`).
+    *   **Dynamic Mapping:** To run a task for each item in the result of another task, pass the name of the dependency task to the `@w.do()` decorator (e.g., `@w.do("popular_authors")`).
     *   **Automatic Context:** The view function does not need a `return` statement. Byrdie automatically executes the defined tasks and assembles the template context from their results.
 
 #### Example: Dynamic Task Mapping
 
 This example shows how `wove` can dynamically run tasks based on the output of a previous task.
 
-1.  The `get_popular_authors` task runs first, fetching a list of authors.
-2.  The `@w.do("get_popular_authors")` decorator on `get_author_stats` tells `wove` to run an instance of `get_author_stats` for *each author* in the result of the first task. All instances run concurrently.
-3.  The `compile_report` task then depends on the collected results of all `get_author_stats` runs.
+1.  The `popular_authors` task runs first, fetching a list of authors.
+2.  The `@w.do("popular_authors")` decorator on `author_stats` tells `wove` to run an instance of `author_stats` for *each author* in the result of the first task. All instances run concurrently.
+3.  The `report` task then depends on the collected results of all `author_stats` runs.
 
 ```python
 # app.py (a view using wove)
@@ -142,15 +143,15 @@ from .models import Author
 
 @route() # wove is enabled by default
 def author_report(request, w):
-    # Task 1: Get a list of authors.
+    # Task 1: A list of popular authors.
     @w.do
-    def get_popular_authors() -> list[Author]:
+    def popular_authors() -> list[Author]:
         return Author.objects.filter(is_popular=True).limit(3)
 
-    # Task 2: Get stats for each author. This task is mapped over the
-    # result of `get_popular_authors`. It will run concurrently for each author.
-    @w.do("get_popular_authors")
-    def get_author_stats(author: Author) -> dict:
+    # Task 2: Stats for each author. This task is mapped over the
+    # result of `popular_authors`. It will run concurrently for each author.
+    @w.do("popular_authors")
+    def author_stats(author: Author) -> dict:
         # The parameter `author` receives each item from the mapped list.
         return {
             "name": author.name,
@@ -158,35 +159,30 @@ def author_report(request, w):
             "first_book_year": author.books.order_by('year').first().year
         }
 
-    # Task 3: Compile a final report. This depends on the list of results
-    # from all the `get_author_stats` task instances.
+    # Task 3: A final report. This depends on the list of results
+    # from all the `author_stats` task instances.
     @w.do
-    def compile_report(get_author_stats: list) -> dict:
+    def report(author_stats: list) -> dict:
         return {
-            "report_name": "Popular Author Stats",
-            "author_stats": get_author_stats # This is a list of dicts
+            "report_title": "Popular Author Stats",
+            "authors": author_stats # This is a list of dicts
         }
 ```
 
 **Template: `templates/author_report.html`**
 
-The template can access the results of any task by its function name. Here we use the final `compile_report` result.
+The template can access the results of any task by its function name. Here we use the final `report` result.
 
 ```html
-<!-- templates/books_and_authors.html -->
-<h1>New Books and Popular Authors</h1>
+<!-- templates/author_report.html -->
+<h1>{{ report.report_title }}</h1>
 
-<h2>New Releases</h2>
 <ul>
-    {% for book in new_releases %}
-        <li>{{ book.title }}</li>
-    {% endfor %}
-</ul>
-
-<h2>Popular Authors</h2>
-<ul>
-    {% for author in popular_authors %}
-        <li>{{ author.name }}</li>
+    {% for author_stats in report.authors %}
+        <li>
+            <strong>{{ author_stats.name }}</strong>
+            ({{ author_stats.book_count }} books, first book in {{ author_stats.first_book_year }})
+        </li>
     {% endfor %}
 </ul>
 ```
