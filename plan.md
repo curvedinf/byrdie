@@ -59,6 +59,8 @@ This document outlines the development plan for byrdie, an opinionated Django wr
 
             *   **Custom Schemas:** Sometimes your API needs to return data that doesn't match any of your models. It might be an aggregation of data from multiple sources, or a specific structure required by a frontend component. For these cases, you can use a `Schema`, which works just like a standard Pydantic or Ninja schema. Define a class that inherits from `byrdie.Schema` and add your fields with type hints. Byrdie will automatically use it to structure your API response.
 
+                **Note on Instantiation:** Schemas are designed to be instantiated directly using their constructor. The constructor is flexible, accepting either keyword arguments (e.g., `MySchema(field=value)`) or a single positional dictionary (e.g., `MySchema({"field": "value"})`). The dictionary-based constructor is particularly useful as it supports automatic type coercion, converting string values from the dictionary into the appropriate field types defined in the schema. While returning a raw dictionary from a view that matches the schema fields is also supported, direct instantiation is the primary and recommended approach.
+
                 ```python
                 # In your app.py
                 from byrdie import Schema
@@ -78,13 +80,14 @@ This document outlines the development plan for byrdie, an opinionated Django wr
                     # is automatically serialized using the view's schema.
                     @w.do
                     def report():
-                        # ... logic to calculate report data ...
-                        return {
-                            "start_date": date(2023, 1, 1),
-                            "end_date": date(2023, 1, 7),
-                            "new_users": 15,
-                            "notes_created": 120,
-                        }
+                        # The primary method is to return a schema instance.
+                        return WeeklyReport(
+                            start_date=date(2023, 1, 1),
+                            end_date=date(2023, 1, 7),
+                            new_users=15,
+                            notes_created=120,
+                            status="OK",
+                        )
                 ```
 
                 This gives you full freedom to design your API outputs exactly as you need them, with the benefits of automatic validation and documentation.
@@ -103,8 +106,11 @@ This document outlines the development plan for byrdie, an opinionated Django wr
                         # Implicitly returns: list[WeeklyReport]
                         @w.do
                         def reports_data():
-                            # ... logic to return a list of report dicts ...
-                            return [{"new_users": 15}, {"new_users": 22}]
+                            # ... logic to return a list of report instances ...
+                            return [
+                                WeeklyReport(start_date=date(2023, 1, 1), end_date=date(2023, 1, 7), new_users=15, notes_created=120, status="OK"),
+                                WeeklyReport(start_date=date(2023, 1, 8), end_date=date(2023, 1, 14), new_users=22, notes_created=150, status="OK")
+                            ]
                 ```
 
                 **Instance Method Routes for Single Items:** A regular method route takes `self` as its first argument. Byrdie will interpret its return type as the `Schema` class itself. This is suitable for detail views or actions on a single object, where Byrdie would provide the hydrated `self` object based on a path parameter.
