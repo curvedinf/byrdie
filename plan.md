@@ -18,6 +18,7 @@ This document outlines the development plan for byrdie, an opinionated Django wr
 
 *   **Goal:** Combine project setup, HTML page rendering, and API endpoint creation into a single, intuitive flow.
 *   **Mechanism:**
+    *   **Command-Line Entrypoint:** The standard `manage.py` script is replaced by a `byrdie` command provided by the package. Common tasks are run through it, e.g., `byrdie runserver`.
     *   A single `runserver()` function starts the entire application.
     *   **Routes are defined using the `@route()` decorator.** The path argument is optional.
         *   **Explicit Path:** You can provide a path string, like `@route("/my-custom-path")`.
@@ -480,11 +481,42 @@ if __name__ == "__main__":
 </div>
 ```
 
-## IV. Technical Implementation Sketch
+## IV. Integrating with Existing Django Projects
+
+While Byrdie is designed to create standalone applications with minimal setup, it can also be integrated into existing Django projects to leverage its features for specific parts of an application. This allows developers to use Byrdie's rapid development capabilities for new features within a larger, traditional Django application. Here's a conceptual guide:
+
+1.  **Installation**: Add `byrdie` to your project's dependencies (e.g., in `requirements.txt`).
+2.  **Create a Byrdie App**: Use the standard Django command to create a new app: `python manage.py startapp my_byrdie_app`.
+3.  **Define Byrdie Components**: Inside this new app, create an `app.py` file. This file will be the home for your Byrdie-specific code, including `byrdie.Model` classes and views defined with the `@route` decorator. You can define your models and routes in this single file, as shown in the "Hello, Byrdie" example.
+4.  **URL Integration**: To make the main Django project aware of your Byrdie routes, you'll need to point to them from your project's root `urls.py`. Byrdie will provide a utility function, let's call it `byrdie.get_urls()`, that discovers all `@route`-decorated views in a given module and returns a standard Django URL pattern list.
+
+    ```python
+    # project/urls.py
+    from django.urls import path, include
+    import my_byrdie_app.app
+
+    urlpatterns = [
+        # ... your other Django URL patterns
+        path('my-new-feature/', include(my_byrdie_app.app.get_urls())),
+    ]
+    ```
+5.  **Settings**: Finally, add your new app to the `INSTALLED_APPS` list in your project's `settings.py`:
+
+    ```python
+    # settings.py
+    INSTALLED_APPS = [
+        # ... other apps
+        'my_byrdie_app',
+    ]
+    ```
+
+This approach allows you to build a new feature using Byrdie's component-based, convention-driven style while keeping the rest of your Django project structure intact. It provides a flexible path for gradually adopting Byrdie or using it for specific, well-suited parts of a larger system.
+
+## V. Technical Implementation Sketch
 
 *   This section will be for brainstorming the "how." We'll think about the core `byrdie` application, the component rendering pipeline, and how we'll manage static assets.
 
-## V. Roadmap
+## VI. Roadmap
 
 *   **Phase 1: Proof of Concept:**
     *   Build the `byrdie.quickstart()` entrypoint.
