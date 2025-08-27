@@ -33,8 +33,22 @@ def route(path: Optional[str] = None, **kwargs) -> Callable:
         if route_path is None:
             route_path = "/" + view.__name__.replace("__", "/").strip("/")
 
+        if kwargs.get("api"):
+            route_path = "/api" + route_path
+
         router.register(route_path, view)
         # Attach path to the view for easier testing
         view.route_path = route_path
+        view.is_authenticated = kwargs.get("is_authenticated", False)
+        view.has_permissions = kwargs.get("has_permissions", None)
+
+        # Inspect the view to find the response schema
+        sig = inspect.signature(view)
+        return_annotation = sig.return_annotation
+        if return_annotation is not inspect.Signature.empty:
+            view.response_schema = return_annotation
+        else:
+            view.response_schema = None
+
         return view
     return decorator

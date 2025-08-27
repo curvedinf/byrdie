@@ -69,3 +69,38 @@ def test_path_with_trailing_slash_in_name():
 
 def test_get_nonexistent_view():
     assert byrdie.routing.router.get_view("/nonexistent") is None
+
+def test_api_prefixing_with_explicit_path():
+    @route("/explicit/path", api=True)
+    def my_api_view():
+        pass
+
+    assert byrdie.routing.router.get_view("/api/explicit/path") == my_api_view
+    assert my_api_view.route_path == "/api/explicit/path"
+
+def test_api_prefixing_with_implicit_path():
+    @route(api=True)
+    def my__implicit__api__view():
+        pass
+
+    assert byrdie.routing.router.get_view("/api/my/implicit/api/view") == my__implicit__api__view
+    assert my__implicit__api__view.route_path == "/api/my/implicit/api/view"
+
+def test_security_attributes():
+    def dummy_permission_check(user):
+        return True
+
+    @route("/secure", is_authenticated=True, has_permissions=dummy_permission_check)
+    def secure_view():
+        pass
+
+    assert secure_view.is_authenticated is True
+    assert secure_view.has_permissions == dummy_permission_check
+
+def test_default_security_attributes():
+    @route("/public")
+    def public_view():
+        pass
+
+    assert public_view.is_authenticated is False
+    assert public_view.has_permissions is None
