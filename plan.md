@@ -588,6 +588,53 @@ Despite this simplification, Byrdie remains fully interoperable with the Django 
 
 This approach allows you to build a new feature using Byrdie's component-based, convention-driven style while keeping the rest of your Django project structure intact. It provides a flexible path for gradually adopting Byrdie or using it for specific, well-suited parts of a larger system.
 
+### E. Deploying to Production with Gunicorn
+
+While `byrdie runserver` is perfect for development, a production environment requires a robust, production-ready web server like Gunicorn. Byrdie is fully compatible with any WSGI-compliant server. Here's how to run your Byrdie application with Gunicorn.
+
+**1. Install Gunicorn**
+
+First, add `gunicorn` to your project's dependencies or install it directly:
+
+```bash
+pip install gunicorn
+```
+
+**2. Create a `wsgi.py` file**
+
+Just like a standard Django project, you'll need a `wsgi.py` file to provide an entrypoint for the Gunicorn server. Create this file in the root of your project, alongside your `app.py`.
+
+The `byrdie` library provides a `get_wsgi_application` function that configures your application and returns the WSGI-compatible application object.
+
+```python
+# wsgi.py
+import os
+from byrdie import get_wsgi_application
+
+# Set the settings module for your project.
+# This should point to your Django-style settings file.
+# If you don't have one, Byrdie will use its defaults.
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'settings')
+
+# It's crucial to import your main application module (e.g., app.py)
+# *before* getting the application object. This ensures that all your
+# models and @route-decorated views are discovered and registered.
+import app
+
+# Get the Byrdie application object.
+application = get_wsgi_application()
+```
+
+**3. Run Gunicorn**
+
+Now, you can run your application by pointing Gunicorn to your `wsgi.py` file and the `application` object inside it:
+
+```bash
+gunicorn wsgi:application --workers 4
+```
+
+Gunicorn will start, load your Byrdie application via the `wsgi.py` file, and begin serving requests. You can configure the number of worker processes (`--workers`) and other Gunicorn settings as needed for your production environment.
+
 ## V. Technical Implementation Sketch (Renumbered)
 
 *   This section will be for brainstorming the "how." We'll think about the core `byrdie` application, the component rendering pipeline, and how we'll manage static assets.
