@@ -1,100 +1,119 @@
 import pytest
 import json
 from django.http import HttpRequest, HttpResponse, JsonResponse
-from pydantic import BaseModel
+from byrdie.schemas import Schema, ModelSchema
 from typing import List
-
-import byrdie.routing
-from byrdie.routing import route, Router
-
-# Fixture to reset the global router before each test
-@pytest.fixture(autouse=True)
-def reset_router():
-    new_router = Router()
-    original_router = byrdie.routing.router
-    byrdie.routing.router = new_router
-    yield
-    byrdie.routing.router = original_router
-
-
-class MySchema(BaseModel):
-    name: str
-    age: int
-
-
-def test_schema_detection_single_object():
-    @route()
-    def get_single() -> MySchema:
-        pass
-
-    assert get_single.response_schema == MySchema
-
-def test_schema_detection_list_of_objects():
-    @route()
-    def get_list() -> List[MySchema]:
-        pass
-
-    assert get_list.response_schema == List[MySchema]
-
-def test_no_schema_detection_when_no_hint():
-    @route()
-    def no_schema():
-        pass
-
-    assert no_schema.response_schema is None
-
-def test_schema_detection_with_non_schema_return_type():
-    @route()
-    def other_return_type() -> str:
-        pass
-
-    assert other_return_type.response_schema == str
-
+from tests.models import SerializedModel, UnserializedModel
+from byrdie.api import Api
 
 def test_serialization_single_object(rf):
-    @route()
+    api = Api()
+    class MySchema(Schema):
+        name: str
+        age: int
+    @api.route("/get/single")
     def get_single(request) -> MySchema:
         return MySchema(name="Test", age=100)
-
     request = rf.get("/")
-    response = get_single(request)
+    view = api.router.get_view("/get/single")
+    response = view(request)
+    assert isinstance(response, JsonResponse)
+    data = json.loads(response.content)
+    assert data == {"name": "Test", "age": 100}
 
+def test_serialization_from_dict(rf):
+    api = Api()
+    class MySchema(Schema):
+        name: str
+        age: int
+    @api.route("/get/single/from/dict")
+    def get_single_from_dict(request) -> MySchema:
+        return {"name": "Test", "age": 100}
+    request = rf.get("/")
+    view = api.router.get_view("/get/single/from/dict")
+    response = view(request)
     assert isinstance(response, JsonResponse)
     data = json.loads(response.content)
     assert data == {"name": "Test", "age": 100}
 
 def test_serialization_list_of_objects(rf):
-    @route()
+    api = Api()
+    class MySchema(Schema):
+        name: str
+        age: int
+    @api.route("/get/list")
     def get_list(request) -> List[MySchema]:
         return [MySchema(name="Test1", age=1), MySchema(name="Test2", age=2)]
-
     request = rf.get("/")
-    response = get_list(request)
-
+    view = api.router.get_view("/get/list")
+    response = view(request)
     assert isinstance(response, JsonResponse)
     data = json.loads(response.content)
     assert data == [{"name": "Test1", "age": 1}, {"name": "Test2", "age": 2}]
 
 def test_no_serialization_for_non_schema(rf):
-    @route()
+    api = Api()
+    @api.route("/get/string")
     def get_string(request) -> str:
         return "Hello, World!"
-
     request = rf.get("/")
-    response = get_string(request)
-
+    view = api.router.get_view("/get/string")
+    response = view(request)
     assert isinstance(response, HttpResponse)
     assert not isinstance(response, JsonResponse)
     assert response.content == b"Hello, World!"
 
-def test_no_serialization_when_no_hint(rf):
-    @route()
-    def get_plain(request):
-        return "Plain text"
+def test_default_serialization_single_model_no_db(rf):
+    api = Api()
+
+    class MyObject:
+        _default_schema = None
+        def __init__(self, name, value, secret):
+            self.name = name
+            self.value = value
+            self.secret = secret
+
+    # Mocking a model with a default schema
+    from byrdie.schemas import Schema
+    class MyObjectSchema(Schema):
+        name: str
+        value: int
+    MyObject._default_schema = MyObjectSchema
+
+
+    @api.route("/get/model")
+    def get_model(request):
+        return MyObject(name="Test Model", value=123, secret="Do not expose")
 
     request = rf.get("/")
-    response = get_plain(request)
+    view = api.router.get_view("/get/model")
+    response = view(request)
+    assert isinstance(response, JsonResponse)
+    data = json.loads(response.content)
+    assert data == {"name": "Test Model", "value": 123}
+    assert "secret" not in data
 
-    assert isinstance(response, HttpResponse)
-    assert not isinstance(response, JsonResponse)
-    assert response.content == b"Plain text"
+@pytest.mark.django_db
+def test_explicit_schema_overrides_default(rf):
+    api = Api()
+    class ExplicitSchema(Schema):
+        name: str
+    @api.route("/get/model/explicit")
+    def get_model_explicit(request) -> ExplicitSchema:
+        return SerializedModel(name="Test Model", value=123, secret="Do not expose")
+    request = rf.get("/")
+    view = api.router.get_view("/get/model/explicit")
+    response = view(request)
+    assert isinstance(response, JsonResponse)
+    data = json.loads(response.content)
+    assert data == {"name": "Test Model"}
+    assert "value" not in data
+
+def test_simple_registration_in_serialization_file():
+    api = Api()
+    @api.route("/test")
+    def my_test_view(request):
+        pass
+    view = api.router.get_view("/test")
+    assert view is not None
+
