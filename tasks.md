@@ -18,9 +18,9 @@ This phase focuses on establishing the basic scaffolding of the project and deli
 This phase focuses on building out the primary features that define the byrdie developer experience.
 
 ### Sub-phase 2.1: Simplified Routing & API
--   [ ] **Task 2.1.1: `@route` Decorator:** Implement the `@route()` decorator with support for explicit paths (`@route("/path")`) and implicit, name-based paths (`def user__profile()`).
--   [ ] **Task 2.1.2: API Prefixing:** Add the `api=True` argument to the `@route` decorator to automatically prefix routes with `/api`.
--   [ ] **Task 2.1.3: Route-Level Security:** Implement the `is_authenticated=True` and `has_permissions=<callable>` arguments for the `@route` decorator.
+-   [x] **Task 2.1.1: `@route` Decorator:** Implement the `@route()` decorator with support for explicit paths (`@route("/path")`) and implicit, name-based paths (`def user__profile()`).
+-   [x] **Task 2.1.2: API Prefixing:** Add the `api=True` argument to the `@route` decorator to automatically prefix routes with `/api`.
+-   [x] **Task 2.1.3: Route-Level Security:** Implement the `is_authenticated=True` and `has_permissions=<callable>` arguments for the `@route` decorator.
 
 ### Sub-phase 2.2: Advanced API Serialization
 -   [ ] **Task 2.2.1: Explicit Schema Serialization:** Add support for Pydantic-style schemas in view return type hints (`-> list[MySchema]`) for automatic response serialization.
