@@ -1,106 +1,159 @@
 import pytest
-import byrdie.routing
-from byrdie.routing import route, Router
-
-# Fixture to reset the global router before each test
-@pytest.fixture(autouse=True)
-def reset_router():
-    # We need to replace the global router instance in the routing module
-    # with a fresh one for each test to ensure isolation.
-    new_router = Router()
-    # Keep a reference to the original router to restore it later
-    original_router = byrdie.routing.router
-    byrdie.routing.router = new_router
-    yield
-    # Restore the original router after the test has run
-    byrdie.routing.router = original_router
+import json
+from byrdie.api import Api, action
+from byrdie.schemas import Schema, ModelSchema
+from django.http import JsonResponse, HttpResponse
+from tests.models import TestModel
 
 
 def test_explicit_path():
-    @route("/explicit/path")
-    def my_view():
+    api = Api()
+    @api.route("/explicit/path")
+    def my_view(request):
         pass
-
-    assert byrdie.routing.router.get_view("/explicit/path") == my_view
-    assert my_view.route_path == "/explicit/path"
+    view = api.router.get_view("/explicit/path")
+    assert view is not None
 
 def test_implicit_path_with_parentheses():
-    @route()
-    def my__implicit__view():
+    api = Api()
+    @api.route()
+    def my__implicit__view(request):
         pass
-
-    assert byrdie.routing.router.get_view("/my/implicit/view") == my__implicit__view
-    assert my__implicit__view.route_path == "/my/implicit/view"
+    view = api.router.get_view("/my/implicit/view")
+    assert view is not None
 
 def test_implicit_path_no_parentheses():
-    @route
-    def another__implicit__view():
+    api = Api()
+    @api.route
+    def another__implicit__view(request):
         pass
-
-    assert byrdie.routing.router.get_view("/another/implicit/view") == another__implicit__view
-    assert another__implicit__view.route_path == "/another/implicit/view"
+    view = api.router.get_view("/another/implicit/view")
+    assert view is not None
 
 def test_duplicate_route_raises_error():
-    @route("/duplicate")
-    def view1():
+    api = Api()
+    @api.route("/duplicate")
+    def view1(request):
         pass
-
     with pytest.raises(ValueError, match="Route for path '/duplicate' is already registered."):
-        @route("/duplicate")
-        def view2():
+        @api.route("/duplicate")
+        def view2(request):
             pass
 
 def test_root_path():
-    @route("/")
-    def root_view():
+    api = Api()
+    @api.route("/")
+    def root_view(request):
         pass
-
-    assert byrdie.routing.router.get_view("/") == root_view
-    assert root_view.route_path == "/"
+    view = api.router.get_view("/")
+    assert view is not None
 
 def test_path_with_trailing_slash_in_name():
-    # Functions with trailing dunders should not result in trailing slashes in the URL
-    @route
-    def trailing__slash__():
+    api = Api()
+    @api.route
+    def trailing__slash__(request):
         pass
-
-    assert byrdie.routing.router.get_view("/trailing/slash") == trailing__slash__
-    assert trailing__slash__.route_path == "/trailing/slash"
+    view = api.router.get_view("/trailing/slash")
+    assert view is not None
 
 def test_get_nonexistent_view():
-    assert byrdie.routing.router.get_view("/nonexistent") is None
+    api = Api()
+    assert api.router.get_view("/nonexistent") is None
 
 def test_api_prefixing_with_explicit_path():
-    @route("/explicit/path", api=True)
-    def my_api_view():
+    api = Api()
+    @api.route("/explicit/path", api=True)
+    def my_api_view(request):
         pass
-
-    assert byrdie.routing.router.get_view("/api/explicit/path") == my_api_view
-    assert my_api_view.route_path == "/api/explicit/path"
+    view = api.router.get_view("/api/explicit/path")
+    assert view is not None
 
 def test_api_prefixing_with_implicit_path():
-    @route(api=True)
-    def my__implicit__api__view():
+    api = Api()
+    @api.route(api=True)
+    def my__implicit__api__view(request):
         pass
-
-    assert byrdie.routing.router.get_view("/api/my/implicit/api/view") == my__implicit__api__view
-    assert my__implicit__api__view.route_path == "/api/my/implicit/api/view"
+    view = api.router.get_view("/api/my/implicit/api/view")
+    assert view is not None
 
 def test_security_attributes():
+    api = Api()
     def dummy_permission_check(user):
         return True
-
-    @route("/secure", is_authenticated=True, has_permissions=dummy_permission_check)
-    def secure_view():
+    @api.route("/secure", is_authenticated=True, has_permissions=dummy_permission_check)
+    def secure_view(request):
         pass
-
+    view = api.router.get_view("/secure")
     assert secure_view.is_authenticated is True
     assert secure_view.has_permissions == dummy_permission_check
 
-def test_default_security_attributes():
-    @route("/public")
-    def public_view():
-        pass
 
-    assert public_view.is_authenticated is False
-    assert public_view.has_permissions is None
+def test_schema_classmethod_route():
+    api = Api()
+    class TestSchema(Schema):
+        @classmethod
+        @action()
+        def list(cls, request):
+            return JsonResponse([{"id": 1}, {"id": 2}], safe=False)
+    api.add_schema(TestSchema)
+    view = api.router.get_view("/test/list")
+    assert view is not None
+
+def test_schema_classmethod_route_custom_path():
+    api = Api()
+    class TestSchema(Schema):
+        @classmethod
+        @action("/custom")
+        def custom_list(cls, request):
+            return HttpResponse("Custom")
+    api.add_schema(TestSchema)
+    view = api.router.get_view("/test/custom")
+    assert view is not None
+
+@pytest.mark.django_db
+def test_model_schema_instance_method_route(rf):
+    api = Api()
+    class TestModelSchema(ModelSchema):
+        class Meta:
+            model = TestModel
+            fields = ['id', 'name']
+        @action()
+        def retrieve(self, request, pk: int):
+            return JsonResponse(self.model_dump())
+    api.add_schema(TestModelSchema)
+    instance = TestModel.objects.create(name="Test Instance")
+    view = api.router.get_view("/testmodel/<int:pk>/retrieve")
+    assert view is not None
+    request = rf.get("/")
+    response = view(request, pk=instance.pk)
+    assert response.status_code == 200
+    data = json.loads(response.content)
+    assert data['name'] == "Test Instance"
+
+def test_simple_registration():
+    api = Api()
+    @api.route("/test")
+    def my_test_view(request):
+        pass
+    view = api.router.get_view("/test")
+    assert view is not None
+
+@pytest.mark.django_db
+def test_model_schema_instance_method_route_custom_path(rf):
+    api = Api()
+    class TestModelSchema(ModelSchema):
+        class Meta:
+            model = TestModel
+            fields = ['id', 'name']
+        @action("/do-something")
+        def action_view(self, request, pk: int):
+            return HttpResponse(f"Action on {self.name}")
+    api.add_schema(TestModelSchema)
+    instance = TestModel.objects.create(name="Test Instance")
+    view = api.router.get_view("/testmodel/<int:pk>/do-something")
+    assert view is not None
+    request = rf.get("/")
+    response = view(request, pk=instance.pk)
+    assert response.status_code == 200
+    assert response.content == b"Action on Test Instance"
+

@@ -23,11 +23,11 @@ This phase focuses on building out the primary features that define the byrdie d
 -   [x] **Task 2.1.3: Route-Level Security:** Implement the `is_authenticated=True` and `has_permissions=<callable>` arguments for the `@route` decorator.
 
 ### Sub-phase 2.2: Advanced API Serialization
--   [ ] **Task 2.2.1: Explicit Schema Serialization:** Add support for Pydantic-style schemas in view return type hints (`-> list[MySchema]`) for automatic response serialization.
--   [ ] **Task 2.2.2: Default Schema Generation:** Implement the logic to create a default serialization schema from a model's fields marked with `expose=True`.
--   [ ] **Task 2.2.3: `ModelSchema`:** Implement the `ModelSchema` class to allow for defining alternate, reusable serialization views for existing models.
--   [ ] **Task 2.2.4: Custom `Schema`:** Implement the `byrdie.Schema` class for defining arbitrary data structures for API responses.
--   [ ] **Task 2.2.5: Schema-Owned Routes:** Implement the discovery mechanism for routes defined as methods on `Schema` and `ModelSchema` classes (both `@classmethod` for collections and instance methods for single items).
+-   [x] **Task 2.2.1: Explicit Schema Serialization:** Add support for Pydantic-style schemas in view return type hints (`-> list[MySchema]`) for automatic response serialization.
+-   [x] **Task 2.2.2: Default Schema Generation:** Implement the logic to create a default serialization schema from a model's fields marked with `expose=True`.
+-   [x] **Task 2.2.3: `ModelSchema`:** Implement the `ModelSchema` class to allow for defining alternate, reusable serialization views for existing models.
+-   [x] **Task 2.2.4: Custom `Schema`:** Implement the `byrdie.Schema` class for defining arbitrary data structures for API responses.
+-   [x] **Task 2.2.5: Schema-Owned Routes:** Implement the discovery mechanism for routes defined as methods on `Schema` and `ModelSchema` classes (both `@classmethod` for collections and instance methods for single items).
 
 ### Sub-phase 2.3: Unified Model-Component Architecture
 -   [ ] **Task 2.3.1: Default Component Convention:** Solidify the convention where a `Note` model maps to a `<note />` tag and `components/note.html`.
