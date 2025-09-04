@@ -1,4 +1,4 @@
-# ![Wove](wove.png)
+# Wove
 Beautiful Python async.
 ## What is Wove For?
 Wove is for running high latency async tasks like web requests and database quer
