@@ -18,6 +18,6 @@ DATABASES = {
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
-    "byrdie",
+    "byrdie.apps.ByrdieConfig",
     "tests",
 ]
