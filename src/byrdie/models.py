@@ -6,16 +6,19 @@ from byrdie.utils import FIELD_TYPE_MAPPING
 import datetime
 
 
+def field_init_wrapper(original_init):
+    def new_init(self, *args, **kwargs):
+        self.expose = kwargs.pop('expose', False)
+        original_init(self, *args, **kwargs)
+    return new_init
+
+# Monkey-patch the Field classes
+for field_class in FIELD_TYPE_MAPPING.keys():
+    field = getattr(models, field_class)
+    field.__init__ = field_init_wrapper(field.__init__)
+
 class ByrdieModelBase(ModelBase):
     def __new__(cls, name, bases, attrs):
-        # Extract our custom 'expose' attribute from Meta before Django sees it
-        meta = attrs.get('Meta')
-        exposed_fields = []
-        if meta:
-            exposed_fields = getattr(meta, 'expose', [])
-            if hasattr(meta, 'expose'):
-                delattr(meta, 'expose')
-
         new_class = super().__new__(cls, name, bases, attrs)
 
         # Don't do anything for abstract models or proxy models
@@ -23,14 +26,14 @@ class ByrdieModelBase(ModelBase):
             new_class._default_schema = None
             return new_class
 
-        if exposed_fields:
-            pydantic_fields = {}
-            for field in new_class._meta.fields:
-                if field.name in exposed_fields:
-                    field_type = field.get_internal_type()
-                    python_type = FIELD_TYPE_MAPPING.get(field_type, str)
-                    pydantic_fields[field.name] = (python_type, ...)
+        pydantic_fields = {}
+        for field in new_class._meta.fields:
+            if getattr(field, 'expose', False):
+                field_type = field.get_internal_type()
+                python_type = FIELD_TYPE_MAPPING.get(field_type, str)
+                pydantic_fields[field.name] = (python_type, ...)
 
+        if pydantic_fields:
             # Create the Pydantic model
             default_schema = create_pydantic_model(
                 f"{name}DefaultSchema",
