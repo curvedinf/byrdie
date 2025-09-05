@@ -8,8 +8,8 @@ class TestModel(models.Model):
         app_label = 'tests'
 
 class SerializedModel(Model):
-    name = models.CharField(max_length=100, expose=True)
-    value = models.IntegerField(expose=True)
+    name = models.CharField(max_length=100)
+    value = models.IntegerField()
     secret = models.CharField(max_length=100)
 
     class Meta:

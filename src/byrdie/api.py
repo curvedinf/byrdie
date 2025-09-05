@@ -178,3 +178,4 @@ def action(path: Optional[str] = None, **kwargs) -> Callable:
 
 # Default API instance
 api = Api()
+route = api.route
