@@ -11,7 +11,7 @@ This phase focuses on establishing the basic scaffolding of the project and deli
 -   [x] **Task 1.3: `runserver()` Function:** Create the core `runserver()` function that starts the development server.
 -   [x] **Task 1.4: Basic `byrdie.Model`:** Implement a foundational `Model` class that inherits from `django.db.models.Model` but is prepared for Byrdie's extensions.
 -   [x] **Task 1.5: Basic Component Renderer:** Develop a simple template processor capable of rendering a model's default component (e.g., `<note />`).
--   [ ] **Task 1.6: "Hello, Byrdie" Example:** Create the single-file `app.py` example application to validate the work of this phase.
+-   [x] **Task 1.6: "Hello, Byrdie" Example:** Create the single-file `app.py` example application to validate the work of this phase.
 
 ## Phase 2: Core Feature Implementation
 

@@ -1,1 +1,21 @@
-# This is a dummy file to allow the runserver command to work.
+from byrdie.models import Model
+from byrdie.api import route
+from byrdie.rendering import render_component
+from django.http import HttpResponse
+from django.db import models
+
+
+class Note(Model):
+    text = models.CharField(max_length=255)
+
+    class Meta:
+        app_label = "app"
+
+    def __str__(self):
+        return self.text
+
+
+@route("/")
+def homepage(request):
+    note = Note(text="Hello, Byrdie!")
+    return HttpResponse(render_component(note))
