@@ -1,12 +1,18 @@
 import os
 import sys
+from typing import Optional
 from django.core.management import ManagementUtility
 from django.conf import settings
 import django
+import typer
 
-def main():
+
+app = typer.Typer()
+
+
+def bootstrap_byrdie():
     """
-    Runs the development server.
+    Sets up the Byrdie application context.
     """
     # We need to make sure the app is in the python path
     sys.path.insert(0, os.getcwd())
@@ -51,12 +57,27 @@ def main():
         )
         django.setup()
 
-    # This is what `manage.py` does internally
-    utility = ManagementUtility(sys.argv)
+
+@app.command()
+def runserver(
+    host: str = typer.Option("127.0.0.1", "--host", "-h", help="The host to listen on."),
+    port: int = typer.Option(8000, "--port", "-p", help="The port to listen on."),
+):
+    """
+    Starts the development server.
+    """
+    bootstrap_byrdie()
+    utility = ManagementUtility(['byrdie', 'runserver', f'{host}:{port}'])
     utility.execute()
+
+
+def main():
+    app()
+
 
 # This is needed for ROOT_URLCONF
 urlpatterns = []
+
 
 if __name__ == "__main__":
     main()
