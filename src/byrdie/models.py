@@ -48,6 +48,8 @@ class ByrdieModelBase(ModelBase):
 
 
 class Model(models.Model, metaclass=ByrdieModelBase):
+    components = []
+
     class Meta:
         abstract = True
 
