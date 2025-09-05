@@ -8,13 +8,12 @@ class TestModel(models.Model):
         app_label = 'tests'
 
 class SerializedModel(Model):
-    name = models.CharField(max_length=100)
-    value = models.IntegerField()
+    name = models.CharField(max_length=100, expose=True)
+    value = models.IntegerField(expose=True)
     secret = models.CharField(max_length=100)
 
     class Meta:
         app_label = 'tests'
-        expose = ['name', 'value']
 
 class UnserializedModel(Model):
     name = models.CharField(max_length=100)
