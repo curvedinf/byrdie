@@ -7,6 +7,14 @@ class TestModel(models.Model):
     class Meta:
         app_label = 'tests'
 
+
+class Note(Model):
+    content = models.TextField()
+    components = ["card"]
+
+    class Meta:
+        app_label = 'tests'
+
 class SerializedModel(Model):
     name = models.CharField(max_length=100)
     value = models.IntegerField()

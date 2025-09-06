@@ -30,8 +30,8 @@ This phase focuses on building out the primary features that define the byrdie d
 -   [x] **Task 2.2.5: Schema-Owned Routes:** Implement the discovery mechanism for routes defined as methods on `Schema` and `ModelSchema` classes (both `@classmethod` for collections and instance methods for single items).
 
 ### Sub-phase 2.3: Unified Model-Component Architecture
--   [ ] **Task 2.3.1: Default Component Convention:** Solidify the convention where a `Note` model maps to a `<note />` tag and `components/note.html`.
--   [ ] **Task 2.3.2: Named Components:** Implement the `components = ["card"]` list on models to enable named component views like `<note:card />`.
+-   [x] **Task 2.3.1: Default Component Convention:** Solidify the convention where a `Note` model maps to a `<note />` tag and `components/note.html`.
+-   [x] **Task 2.3.2: Named Components:** Implement the `components = ["card"]` list on models to enable named component views like `<note:card />`.
 
 ### Sub-phase 2.4: Hyper-Integrated Template Processor
 -   [ ] **Task 2.4.1: Implicit Context Passing:** Ensure that when rendering a component (e.g., `<note />` inside a loop), the relevant object (`note`) is automatically passed into the component's template context.
