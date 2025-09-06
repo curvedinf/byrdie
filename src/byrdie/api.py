@@ -1,8 +1,11 @@
 import inspect
 from functools import wraps
 from typing import Callable, Dict, Optional, List, get_origin, get_args
+
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
+from django.template import engines
+from django.template.loader import get_template, TemplateDoesNotExist
 from django.urls import path as url_path
 
 from .schemas import BaseModel, ModelSchema
@@ -115,7 +118,7 @@ class Api:
                 elif isinstance(result, list) and result and hasattr(result[0], '_default_schema'):
                     response_schema = List[result[0]._default_schema]
 
-            return self._process_view_result(result, response_schema)
+            return self._process_view_result(result, response_schema, view)
         return wrapper
 
     def _create_schema_view_wrapper(self, view_func: Callable, schema_cls: type, is_classmethod: bool, **kwargs) -> Callable:
@@ -149,10 +152,31 @@ class Api:
                 elif isinstance(result, list) and result and hasattr(result[0], '_default_schema'):
                     response_schema = List[result[0]._default_schema]
 
-            return self._process_view_result(result, response_schema)
+            return self._process_view_result(result, response_schema, view_func)
         return wrapper
 
-    def _process_view_result(self, result: any, schema: any) -> HttpResponse:
+    def _process_view_result(self, result: any, schema: any, view_func: Callable) -> HttpResponse:
+        if isinstance(result, HttpResponse):
+            return result
+
+        # If the view returns a dictionary, we assume it's a context for a template.
+        if isinstance(result, dict) and schema is None:
+            template_name = f"{view_func.__name__}.html"
+            try:
+                template = get_template(template_name)
+                # Check if the template extends a base template
+                with open(template.origin.name) as f:
+                    content = f.read()
+                if not content.strip().startswith("{% extends"):
+                    # If not, wrap it in the base template
+                    content = '{% extends "base.html" %}{% block content %}' + content + '{% endblock %}'
+                    template = engines['django'].from_string(content)
+
+                return HttpResponse(template.render(result))
+
+            except TemplateDoesNotExist:
+                return HttpResponse(f"Template '{template_name}' not found for view '{view_func.__name__}'.", status=404)
+
         if schema is None:
             return HttpResponse(result)
 

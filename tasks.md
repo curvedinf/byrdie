@@ -34,8 +34,8 @@ This phase focuses on building out the primary features that define the byrdie d
 -   [x] **Task 2.3.2: Named Components:** Implement the `components = ["card"]` list on models to enable named component views like `<note:card />`.
 
 ### Sub-phase 2.4: Hyper-Integrated Template Processor
--   [ ] **Task 2.4.1: Implicit Context Passing:** Ensure that when rendering a component (e.g., `<note />` inside a loop), the relevant object (`note`) is automatically passed into the component's template context.
--   [ ] **Task 2.4.2: Base Template Injection:** Implement the logic that automatically injects view templates into a base template, and allows them to populate the `<head>` via `{% block head %}`.
+-   [x] **Task 2.4.1: Implicit Context Passing:** Ensure that when rendering a component (e.g., `<note />` inside a loop), the relevant object (`note`) is automatically passed into the component's template context.
+-   [x] **Task 2.4.2: Base Template Injection:** Implement the logic that automatically injects view templates into a base template, and allows them to populate the `<head>` via `{% block head %}`.
 
 ### Sub-phase 2.5: The Byrdie Frontend Bridge
 -   [ ] **Task 2.5.1: Component Activation:** Implement the mechanism where using a model's name as an HTML tag (e.g., `<note>`) activates the frontend bridge.

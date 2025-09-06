@@ -1,7 +1,5 @@
 from byrdie.models import Model
 from byrdie.api import route
-from byrdie.rendering import render_component
-from django.http import HttpResponse
 from django.db import models
 
 
@@ -18,4 +16,4 @@ class Note(Model):
 @route("/")
 def homepage(request):
     note = Note(text="Hello, Byrdie!")
-    return HttpResponse(render_component(note))
+    return {"note": note}
