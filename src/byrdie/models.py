@@ -1,10 +1,18 @@
 from django.db import models
 
+def expose(func):
+    """
+    Decorator to expose a method to the frontend.
+    """
+    func._byrdie_exposed = True
+    return func
+
 class Model(models.Model):
     """
     Base model for Byrdie applications.
     """
     components = []
+    exposed_fields = []
 
     class Meta:
         abstract = True

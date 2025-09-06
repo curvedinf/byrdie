@@ -2,8 +2,9 @@ from django.test import TestCase
 from django.db import models
 from django.template import Template, Context
 from byrdie.rendering import render_component
-from .models import Note
+from .models import Note, ExposedModel
 import os
+import json
 
 class RenderingTest(TestCase):
     def setUp(self):
@@ -18,9 +19,24 @@ class RenderingTest(TestCase):
         with open(self.card_template_path, 'w') as f:
             f.write('<h2>{{ object.content }}</h2>')
 
+        self.exposed_template_path = os.path.join(self.template_dir, 'exposedmodel.html')
+        with open(self.exposed_template_path, 'w') as f:
+            f.write('<div>{{ object.name }}</div>')
+
     def tearDown(self):
         os.remove(self.default_template_path)
         os.remove(self.card_template_path)
+        os.remove(self.exposed_template_path)
+
+    def test_render_component_with_exposed_data(self):
+        instance = ExposedModel.objects.create(name='Test', value=42)
+        rendered_html = render_component(instance)
+
+        expected_data = {'name': 'Test', 'value': 42, 'double': True}
+        expected_json = json.dumps(expected_data)
+
+        self.assertIn(f"x-data='{expected_json}'", rendered_html)
+        self.assertIn('>Test</div>', rendered_html)
 
     def test_render_component_direct_call(self):
         instance = Note.objects.create(content='Test Content')
