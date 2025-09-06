@@ -18,7 +18,9 @@ def render_component(instance: models.Model, variant: str = None) -> str:
 
     try:
         # Pass the instance and variant to the template context
+        component_name = instance.__class__.__name__.lower()
         context = {
+            component_name: instance,
             'object': instance,
             'variant': variant
         }

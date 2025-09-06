@@ -31,7 +31,10 @@ def bootstrap_byrdie():
             TEMPLATES=[
                 {
                     "BACKEND": "django.template.backends.django.DjangoTemplates",
-                    "DIRS": [os.path.join(os.getcwd(), "components")],
+                    "DIRS": [
+                        os.path.join(os.getcwd(), "components"),
+                        os.path.join(os.getcwd(), "templates"),
+                    ],
                     "APP_DIRS": True,
                 }
             ],
