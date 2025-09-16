@@ -21,6 +21,7 @@ def bootstrap_byrdie():
             INSTALLED_APPS=[
                 'byrdie',
                 'django.contrib.staticfiles',
+                'app',
             ],
             DATABASES={
                 'default': {
@@ -39,6 +40,8 @@ def bootstrap_byrdie():
                 }
             ],
             STATIC_URL="/static/",
+            STATICFILES_DIRS=[os.path.join(os.getcwd(), "static")],
+            MIGRATION_MODULES={'app': 'migrations'},
         )
         django.setup()
 
@@ -47,7 +50,9 @@ def bootstrap_byrdie():
 
     # Dynamically import the app
     try:
-        __import__(app_module)
+        app = __import__(app_module)
+        if hasattr(app, 'initialize_models'):
+            app.initialize_models()
     except ImportError as e:
         print(f"Error importing app module: {e}")
         sys.exit(1)
@@ -83,6 +88,14 @@ def main():
                     sys.exit(1)
 
         utility = ManagementUtility(['byrdie', 'runserver', f'{host}:{port}'])
+        utility.execute()
+    elif command == "makemigrations":
+        bootstrap_byrdie()
+        utility = ManagementUtility(['byrdie', 'makemigrations', 'app'])
+        utility.execute()
+    elif command == "migrate":
+        bootstrap_byrdie()
+        utility = ManagementUtility(['byrdie', 'migrate'])
         utility.execute()
     else:
         print(f"Unknown command: {command}")
