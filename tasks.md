@@ -38,11 +38,11 @@ This phase focuses on building out the primary features that define the byrdie d
 -   [x] **Task 2.4.2: Base Template Injection:** Implement the logic that automatically injects view templates into a base template, and allows them to populate the `<head>` via `{% block head %}`.
 
 ### Sub-phase 2.5: The Byrdie Frontend Bridge
--   [ ] **Task 2.5.1: Component Activation:** Implement the mechanism where using a model's name as an HTML tag (e.g., `<note>`) activates the frontend bridge.
+-   [x] **Task 2.5.1: Component Activation:** Implement the mechanism where using a model's name as an HTML tag (e.g., `<note>`) activates the frontend bridge.
 -   [x] **Task 2.5.2: Automatic State Initialization:** Automatically serialize a model's `expose=True` fields and methods into the component's Alpine.js data scope.
 -   [x] **Task 2.5.3: `@expose` Decorator:** Implement the `@expose` decorator to make Python model methods callable from the frontend.
--   [ ] **Task 2.5.4: Proxied API Routes:** Create the global `byrdie` JavaScript object that exposes `@route(api=True)` functions, handling the full fetch/hydration lifecycle.
--   [ ] **Task 2.5.5: Data Synchronization:** Implement the mechanism that takes a dictionary returned from an exposed Python method and uses it to update the frontend component's state.
+-   [x] **Task 2.5.4: Proxied API Routes:** Create the global `byrdie` JavaScript object that exposes `@route(api=True)` functions, handling the full fetch/hydration lifecycle.
+-   [x] **Task 2.5.5: Data Synchronization:** Implement the mechanism that takes a dictionary returned from an exposed Python method and uses it to update the frontend component's state.
 
 ### Sub-phase 2.6: Wove Integration
 -   [ ] **Task 2.6.1: Wove by Default:** Integrate `wove` so that a `w` object is injected into all routes by default.

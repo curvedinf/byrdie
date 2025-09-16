@@ -1,19 +1,35 @@
-from byrdie.models import Model
 from byrdie.api import route
 from django.db import models
 
+Note = None
 
-class Note(Model):
-    text = models.CharField(max_length=255)
+def initialize_models():
+    global Note
+    from byrdie.models import Model, expose
 
-    class Meta:
-        app_label = "app"
+    class TmpNote(Model):
+        text = models.CharField(max_length=255)
+        exposed_fields = ['text']
 
-    def __str__(self):
-        return self.text
+        class Meta:
+            app_label = "app"
 
+        def __str__(self):
+            return self.text
+
+        @expose
+        def clear_text(self):
+            self.text = ""
+            return {"text": self.text}
+
+        @expose
+        def update_text(self, new_text=""):
+            self.text = new_text
+            return {"text": self.text}
+
+    Note = TmpNote
 
 @route("/")
 def homepage(request):
-    note = Note(text="Hello, Byrdie!")
+    note, _ = Note.objects.get_or_create(pk=1, defaults={'text': "Hello, Byrdie!"})
     return {"note": note}

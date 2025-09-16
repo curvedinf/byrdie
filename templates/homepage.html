@@ -1,8 +1,6 @@
-{% comment %}
-This template is for the homepage view.
-It receives a 'note' object in the context.
-It uses the 'component' tag to render it.
-{% endcomment %}
+{% load byrdie_tags %}
+{% byrdie %}
 <h1>Welcome to Byrdie</h1>
 <p>Here is your note:</p>
-{% component 'note' %}
+<note instance="note" />
+{% endbyrdie %}

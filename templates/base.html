@@ -1,7 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html>
 <head>
     <title>Byrdie App</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
+    <script src="{% static 'js/byrdie.js' %}"></script>
+    {% load byrdie_tags %}
+    {% byrdie_api_routes %}
     {% block head %}{% endblock %}
 </head>
 <body>

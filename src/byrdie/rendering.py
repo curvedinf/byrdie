@@ -13,9 +13,9 @@ def render_component(instance: models.Model, variant: str = None) -> str:
         # Check if the variant is allowed for this model
         if not hasattr(instance, 'components') or variant not in instance.components:
             return mark_safe(f"<!-- Component variant '{variant}' not allowed for model '{component_name}' -->")
-        template_name = f'{component_name}_{variant}.html'
+        template_name = f'components/{component_name}_{variant}.html'
     else:
-        template_name = f'{component_name}.html'
+        template_name = f'components/{component_name}.html'
 
     try:
         # Pass the instance and variant to the template context
@@ -28,22 +28,29 @@ def render_component(instance: models.Model, variant: str = None) -> str:
         html = render_to_string(template_name, context)
 
         # Prepare data for the frontend bridge
-        exposed_data = {}
+        exposed_data = {
+            'pk': instance.pk,
+            '_meta': {
+                'app_label': instance._meta.app_label,
+                'model_name': instance._meta.model_name.lower(),
+            }
+        }
         if hasattr(instance, 'exposed_fields'):
             for field_name in instance.exposed_fields:
                 exposed_data[field_name] = getattr(instance, field_name)
 
+        exposed_methods = []
         for name in dir(instance):
             if not name.startswith('_'):
                 try:
                     attr = getattr(instance, name)
                     if callable(attr) and hasattr(attr, '_byrdie_exposed'):
-                        # How to handle methods will be defined in a later task.
-                        # For now, we just indicate that they are available.
-                        exposed_data[name] = True
+                        exposed_methods.append(name)
                 except AttributeError:
                     # This can happen with managers, so we just ignore it.
                     pass
+
+        exposed_data['exposed_methods'] = exposed_methods
 
         if exposed_data:
             # Inject x-data into the root element
@@ -51,7 +58,7 @@ def render_component(instance: models.Model, variant: str = None) -> str:
             # This is a bit fragile, but avoids a dependency on a full HTML parser.
             # It assumes the first tag is the root element.
             import re
-            html = re.sub(r'<([a-zA-Z0-9\-]+)', f'<\\1 x-data=\'{json_data}\'', html, 1)
+            html = re.sub(r'<([a-zA-Z0-9\-]+)', f'<\\1 x-data=\'byrdieComponent({json_data})\'', html, 1)
 
         return mark_safe(html)
 
