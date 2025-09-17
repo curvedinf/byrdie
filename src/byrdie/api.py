@@ -1,13 +1,12 @@
 import inspect
 from functools import wraps
-from typing import Callable, Dict, Optional, List, get_origin, get_args
+from typing import Callable, Dict, Optional, List, get_origin, get_args, Any
 from django.http import HttpResponse, JsonResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect
-from django.template import engines
-from django.template.loader import get_template, TemplateDoesNotExist
+from django.template import engines, TemplateDoesNotExist
+from django.template.loader import get_template
 from django.urls import path as url_path
 from wove import weave
-
 from .schemas import BaseModel, ModelSchema
 
 
@@ -93,7 +92,7 @@ class Api:
         is_authenticated = decorator_kwargs.get("is_authenticated", False)
         has_permissions = decorator_kwargs.get("has_permissions", None)
         wove_enabled = decorator_kwargs.get("wove", True)
-
+        is_api = decorator_kwargs.get("api", False)
         @wraps(view)
         def wrapper(request, *args, **route_kwargs):
             # Enforce security
@@ -101,14 +100,18 @@ class Api:
                 return redirect('/login/')
             if has_permissions and callable(has_permissions) and not has_permissions(request):
                 return HttpResponseForbidden()
-
+            result = None
             if not wove_enabled:
                 result = view(request, *args, **route_kwargs)
             else:
                 with weave() as w:
                     result = view(request, w, *args, **route_kwargs)
-                result = w.result.final if hasattr(w, 'result') and w.result else None
-
+                if result is None and hasattr(w, 'result'):
+                    if is_api:
+                        result = w.result.final if hasattr(w.result, 'final') else None
+                    else:
+                        # Assemble context from all task results
+                        result = dict(w.result)
             sig = inspect.signature(view)
             return_annotation = sig.return_annotation
             response_schema = return_annotation if return_annotation is not inspect.Signature.empty else None
@@ -117,7 +120,7 @@ class Api:
                     response_schema = result._default_schema
                 elif isinstance(result, list) and result and hasattr(result[0], '_default_schema'):
                     response_schema = List[result[0]._default_schema]
-            return self._process_view_result(result, response_schema, view)
+            return self._process_view_result(result, response_schema, view, is_api=is_api)
         wrapper.is_authenticated = is_authenticated
         wrapper.has_permissions = has_permissions
         return wrapper
@@ -126,7 +129,6 @@ class Api:
         is_authenticated = action_kwargs.get("is_authenticated", False)
         has_permissions = action_kwargs.get("has_permissions", None)
         wove_enabled = action_kwargs.get("wove", True)
-
         @wraps(view_func)
         def wrapper(request, *args, **route_kwargs):
             # Enforce security
@@ -134,14 +136,15 @@ class Api:
                 return redirect('/login/')
             if has_permissions and callable(has_permissions) and not has_permissions(request):
                 return HttpResponseForbidden()
-
+            result = None
             if is_classmethod:
                 if not wove_enabled:
                     result = view_func(schema_cls, request, *args, **route_kwargs)
                 else:
                     with weave() as w:
                         result = view_func(schema_cls, request, w, *args, **route_kwargs)
-                    result = w.result.final if hasattr(w, 'result') and w.result else None
+                    if result is None and hasattr(w, 'result'):
+                        result = w.result.final if hasattr(w.result, 'final') else None
             else:
                 pk = route_kwargs.get('pk')
                 if not pk:
@@ -156,8 +159,8 @@ class Api:
                 else:
                     with weave() as w:
                         result = view_func(schema_instance, request, w, *args, **route_kwargs)
-                    result = w.result.final if hasattr(w, 'result') and w.result else None
-
+                    if result is None and hasattr(w, 'result'):
+                        result = w.result.final if hasattr(w.result, 'final') else None
             sig = inspect.signature(view_func)
             return_annotation = sig.return_annotation
             response_schema = return_annotation if return_annotation is not inspect.Signature.empty else None
@@ -166,41 +169,42 @@ class Api:
                     response_schema = result._default_schema
                 elif isinstance(result, list) and result and hasattr(result[0], '_default_schema'):
                     response_schema = List[result[0]._default_schema]
-            return self._process_view_result(result, response_schema, view_func)
+            return self._process_view_result(result, response_schema, view_func, is_api=True)
         wrapper.is_authenticated = is_authenticated
         wrapper.has_permissions = has_permissions
         return wrapper
 
-    def _process_view_result(self, result: any, schema: any, view_func: Callable) -> HttpResponse:
+    def _process_view_result(self, result: any, schema: any, view_func: Callable, is_api: bool = False) -> HttpResponse:
         if isinstance(result, HttpResponse):
             return result
-        # If the view returns a dictionary, we assume it's a context for a template.
-        if isinstance(result, dict) and schema is None:
-            template_name = f"{view_func.__name__}.html"
+        # If the view returns a dictionary for non-API, render template
+        if not is_api and isinstance(result, dict) and schema is None:
+            template_name = f"templates/{view_func.__name__}.html"
             try:
                 template = get_template(template_name)
-                # Check if the template extends a base template
-                with open(template.origin.name) as f:
-                    content = f.read()
-                if not content.strip().startswith("{% extends"):
-                    # If not, wrap it in the base template
-                    content = '{% extends "base.html" %}{% block content %}' + content + '{% endblock %}' 
-                    template = engines['django'].from_string(content)
+                source = template.source
+                if not source.lstrip().startswith('{% extends'):
+                    wrapped_source = '{% extends "base.html" %}{% block content %}' + source + '{% endblock %}' 
+                    template = engines['django'].from_string(wrapped_source)
                 return HttpResponse(template.render(result))
             except TemplateDoesNotExist:
                 return HttpResponse(f"Template '{template_name}' not found for view '{view_func.__name__}'.", status=404)
-        if schema is None:
-            return HttpResponse(result)
-        origin = get_origin(schema)
-        if origin is list or origin is List:
-            args = get_args(schema)
-            if args and inspect.isclass(args[0]) and issubclass(args[0], BaseModel):
-                validated_data = [args[0].model_validate(item).model_dump() for item in result]
-                return JsonResponse(validated_data, safe=False)
-        if inspect.isclass(schema) and issubclass(schema, BaseModel):
-            validated_data = schema.model_validate(result).model_dump()
-            return JsonResponse(validated_data)
-        return HttpResponse(result)
+        if schema is not None:
+            origin = get_origin(schema)
+            if origin is list or origin is List:
+                args = get_args(schema)
+                if args and inspect.isclass(args[0]) and issubclass(args[0], BaseModel):
+                    validated_data = [args[0].model_validate(item).model_dump() for item in result]
+                    return JsonResponse(validated_data, safe=False)
+            if inspect.isclass(schema) and issubclass(schema, BaseModel):
+                validated_data = schema.model_validate(result).model_dump()
+                return JsonResponse(validated_data)
+            return HttpResponse(str(result))
+        if is_api:
+            if isinstance(result, (dict, list)):
+                return JsonResponse(result, safe=not isinstance(result, list))
+            return HttpResponse(str(result))
+        return HttpResponse(str(result))
 
 
 def action(path: Optional[str] = None, **kwargs) -> Callable:
