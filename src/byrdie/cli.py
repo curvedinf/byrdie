@@ -7,7 +7,6 @@ from byrdie import urls
 from byrdie.utils import parse_imports, find_model_subclasses, register_discovered_models
 from django.apps import apps
 import importlib
-
 def bootstrap_byrdie():
     """
     Sets up the Byrdie application context.
@@ -63,10 +62,14 @@ def bootstrap_byrdie():
                 errors.append(f"Failed to import {module_name}: {e}")
         if errors:
             print("Import errors occurred:", errors)
-        if hasattr(app, 'initialize_models'):
-            app.initialize_models()
-        # Discover models from all imported modules
+        # Discover models from all imported modules first
         discovered_models = find_model_subclasses(imported_modules)
+        # If no models discovered dynamically, fall back to initialize_models
+        if not discovered_models and hasattr(app, 'initialize_models'):
+            app.initialize_models()
+            # Re-discover from app module after initialization
+            app_discovered = find_model_subclasses([app])
+            discovered_models.extend(app_discovered)
         # Register discovered models
         try:
             app_config = apps.get_app_config('app')
@@ -76,7 +79,6 @@ def bootstrap_byrdie():
     except ImportError as e:
         print(f"Error importing app module: {e}")
         sys.exit(1)
-
 def main():
     """
     A basic command-line interface for Byrdie.
@@ -116,6 +118,5 @@ def main():
     else:
         print(f"Unknown command: {command}")
         sys.exit(1)
-
 if __name__ == "__main__":
     main()
