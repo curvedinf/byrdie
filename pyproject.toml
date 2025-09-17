@@ -4,7 +4,40 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "byrdie"
-version = "0.0.1"
+version = "0.1.0"
+description = "Byrdie is an opinionated Django wrapper designed for simplicity, productivity, and modern web development practices."
+readme = "README.md"
+authors = [
+  { name="Byrdie Team", email="byrdie@example.com" },
+]
+license = {text = "MIT"}
+requires-python = ">=3.10"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Framework :: Django",
+  "Framework :: Django :: 5.0",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "Django>=5.0",
+  "wove",
+  "pydantic",
+  "django-ninja",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest",
+  "pytest-django",
+]
+test = [
+  "pytest",
+  "pytest-django",
+]
 
 [project.scripts]
 byrdie = "byrdie.cli:main"
