@@ -52,15 +52,19 @@ def bootstrap_byrdie():
         app = __import__(app_module)
         additional_modules = parse_imports(os.path.join(os.getcwd(), 'app.py'))
         errors = []
+        imported_modules = [app]
         for module_name in additional_modules:
             try:
-                importlib.import_module(module_name)
+                imported_module = importlib.import_module(module_name)
+                imported_modules.append(imported_module)
             except ImportError as e:
                 errors.append(f"Failed to import {module_name}: {e}")
         if errors:
             print("Import errors occurred:", errors)
         if hasattr(app, 'initialize_models'):
             app.initialize_models()
+        # Discover models from all imported modules
+        discovered_models = find_model_subclasses(imported_modules)
     except ImportError as e:
         print(f"Error importing app module: {e}")
         sys.exit(1)
