@@ -50,6 +50,15 @@ def bootstrap_byrdie():
     # Dynamically import the app
     try:
         app = __import__(app_module)
+        additional_modules = parse_imports(os.path.join(os.getcwd(), 'app.py'))
+        errors = []
+        for module_name in additional_modules:
+            try:
+                importlib.import_module(module_name)
+            except ImportError as e:
+                errors.append(f"Failed to import {module_name}: {e}")
+        if errors:
+            print("Import errors occurred:", errors)
         if hasattr(app, 'initialize_models'):
             app.initialize_models()
     except ImportError as e:
