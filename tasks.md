@@ -53,15 +53,15 @@ This phase focuses on building out the primary features that define the byrdie d
 
 This phase ensures that byrdie can grow from a single file into a larger, well-structured application and integrate with the existing Django ecosystem.
 
--   [ ] **Task 3.1: Modular Project Support:** Implement the discovery mechanism that finds routes and models in any modules imported into the main `app.py`.
--   [ ] **Task 3.2: `settings.py` Support:** Add logic to detect and load a standard Django `settings.py` file for configuration.
--   [ ] **Task 3.3: Django Integration:** Create the `byrdie.get_urls()` utility to allow an existing Django project to include and use routes defined with Byrdie.
+-   [x] **Task 3.1: Modular Project Support:** Implement the discovery mechanism that finds routes and models in any modules imported into the main `app.py`.
+-   [x] **Task 3.2: `settings.py` Support:** Add logic to detect and load a standard Django `settings.py` file for configuration.
+-   [x] **Task 3.3: Django Integration:** Create the `byrdie.get_urls()` utility to allow an existing Django project to include and use routes defined with Byrdie.
 
 ## Phase 4: Release & Documentation
 
 This phase focuses on packaging, documenting, and releasing the project.
 
--   [ ] **Task 4.1: PyPI Packaging:** Create the `setup.py` or `pyproject.toml` to package `byrdie` for distribution on PyPI.
+-   [x] **Task 4.1: PyPI Packaging:** Create the `setup.py` or `pyproject.toml` to package `byrdie` for distribution on PyPI.
 -   [x] **Task 4.2: Comprehensive Documentation:** Write detailed documentation for every feature, including all classes, functions, and decorators.
--   [ ] **Task 4.3: Tutorials and Examples:** Create a set of tutorials and practical examples beyond the "Hello, Byrdie" app.
--   [ ] **Task 4.4: Community Feedback Channels:** Establish a process for gathering community feedback (e.g., GitHub Issues templates, discussions).
+-   [x] **Task 4.3: Tutorials and Examples:** Create a set of tutorials and practical examples beyond the "Hello, Byrdie" app.
+-   [x] **Task 4.4: Community Feedback Channels:** Establish a process for gathering community feedback (e.g., GitHub Issues templates, discussions).
