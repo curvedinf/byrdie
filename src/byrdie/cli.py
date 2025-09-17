@@ -42,6 +42,7 @@ def bootstrap_byrdie():
             STATIC_URL="/static/",
             STATICFILES_DIRS=[os.path.join(os.getcwd(), "static")],
             MIGRATION_MODULES={'app': 'migrations'},
+            SESSION_REMEMBER_ME_AGE=1209600,  # 2 weeks
         )
         django.setup()
 
