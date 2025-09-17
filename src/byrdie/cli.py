@@ -63,6 +63,7 @@ def bootstrap_byrdie():
         if errors:
             print("Import errors occurred:", errors)
         print(f"Dynamically imported modules: {[m.__name__ for m in imported_modules]}")
+        # @route decorators will automatically register routes on the global api.router during the import process, ensuring no additional steps are needed for routes.
         # Discover models from all imported modules first
         discovered_models = find_model_subclasses(imported_modules)
         # If no models discovered dynamically, fall back to initialize_models
