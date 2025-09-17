@@ -9,7 +9,6 @@ from django.urls import path as url_path
 from wove import weave
 from .schemas import BaseModel, ModelSchema
 
-
 class Router:
     def __init__(self):
         self.routes: Dict[str, Callable] = {}
@@ -23,7 +22,6 @@ class Router:
 
     def get_view(self, path: str) -> Optional[Callable]:
         return self.routes.get(path)
-
 
 class Api:
     def __init__(self):
@@ -206,7 +204,6 @@ class Api:
             return HttpResponse(str(result))
         return HttpResponse(str(result))
 
-
 def action(path: Optional[str] = None, **kwargs) -> Callable:
     def decorator(view: Callable) -> Callable:
         view.is_action = True
@@ -214,7 +211,13 @@ def action(path: Optional[str] = None, **kwargs) -> Callable:
         return view
     return decorator
 
-
 # Default API instance
 api = Api()
 route = api.route
+
+def get_urls():
+    """
+    Returns a list of Django URL patterns for all registered routes.
+    This allows integration into existing Django projects via include in urls.py.
+    """
+    return api.urls
