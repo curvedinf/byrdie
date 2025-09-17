@@ -1,7 +1,7 @@
 import ast
+import inspect
 import sys
 import datetime
-
 # A mapping from Django field types to Python types for Pydantic
 FIELD_TYPE_MAPPING = {
     'AutoField': int,
@@ -19,14 +19,12 @@ FIELD_TYPE_MAPPING = {
     'ForeignKey': int,  # By default, we'll expose the foreign key ID
     'OneToOneField': int,
 }
-
 def parse_imports(app_path):
     """
     Parse the app.py file to extract project-specific import module names.
     """
     with open(app_path, 'r') as f:
         tree = ast.parse(f.read(), filename=app_path)
-
     imports = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -35,7 +33,6 @@ def parse_imports(app_path):
                 imports.add(module)
         elif isinstance(node, ast.ImportFrom) and node.module:
             imports.add(node.module)
-
     # Filter out standard library, django, and byrdie
     stdlib_modules = set(sys.stdlib_module_names)
     project_imports = []
@@ -47,5 +44,17 @@ def parse_imports(app_path):
         # For relative imports, the module name is already resolved without dots
         # Prefix with package name if needed, but assuming flat structure
         project_imports.append(mod)
-
     return list(set(project_imports))  # Ensure unique
+
+def find_model_subclasses(modules):
+    """
+    Find all subclasses of byrdie.models.Model in the given modules.
+    """
+    from byrdie.models import Model
+    subclasses = []
+    for module in modules:
+        members = inspect.getmembers(module, inspect.isclass)
+        for name, cls in members:
+            if issubclass(cls, Model) and cls is not Model:
+                subclasses.append(cls)
+    return subclasses
