@@ -45,8 +45,8 @@ This phase focuses on building out the primary features that define the byrdie d
 -   [x] **Task 2.5.5: Data Synchronization:** Implement the mechanism that takes a dictionary returned from an exposed Python method and uses it to update the frontend component's state.
 
 ### Sub-phase 2.6: Wove Integration
--   [ ] **Task 2.6.1: Wove by Default:** Integrate `wove` so that a `w` object is injected into all routes by default.
--   [ ] **Task 2.6.2: Automatic Context Assembly:** Implement the logic to automatically execute the `wove` task graph and assemble the template context from the results of named tasks.
+-   [x] **Task 2.6.1: Wove by Default:** Integrate `wove` so that a `w` object is injected into all routes by default.
+-   [x] **Task 2.6.2: Automatic Context Assembly:** Implement the logic to automatically execute the `wove` task graph and assemble the template context from the results of named tasks.
 -   [x] **Task 2.6.3: Session Management:** Add a setting for "remember me" session duration and a login view to implement it.
 
 ## Phase 3: Project Scalability & DX
