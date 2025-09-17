@@ -13,39 +13,44 @@ def bootstrap_byrdie():
     """
     # We need to make sure the app is in the python path
     sys.path.insert(0, os.getcwd())
-    # Minimal settings for Django to run
-    if not settings.configured:
-        settings.configure(
-            DEBUG=True,
-            SECRET_KEY='a-secret-key', # In a real app, this should be secret!
-            ROOT_URLCONF='byrdie.urls', # Point to the new urls module
-            INSTALLED_APPS=[
-                'byrdie',
-                'django.contrib.staticfiles',
-                'app',
-            ],
-            DATABASES={
-                'default': {
-                    'ENGINE': 'django.db.backends.sqlite3',
-                    'NAME': ':memory:',
-                }
-            },
-            TEMPLATES=[
-                {
-                    "BACKEND": "django.template.backends.django.DjangoTemplates",
-                    "DIRS": [
-                        os.path.join(os.getcwd(), "components"),
-                        os.path.join(os.getcwd(), "templates"),
-                    ],
-                    "APP_DIRS": True,
-                }
-            ],
-            STATIC_URL="/static/",
-            STATICFILES_DIRS=[os.path.join(os.getcwd(), "static")],
-            MIGRATION_MODULES={'app': 'migrations'},
-            SESSION_REMEMBER_ME_AGE=1209600,  # 2 weeks
-        )
-        django.setup()
+    # Check for custom settings.py
+    settings_file = os.path.join(os.getcwd(), 'settings.py')
+    if os.path.exists(settings_file):
+        os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
+        import settings
+    else:
+        if not settings.configured:
+            settings.configure(
+                DEBUG=True,
+                SECRET_KEY='a-secret-key', # In a real app, this should be secret!
+                ROOT_URLCONF='byrdie.urls', # Point to the new urls module
+                INSTALLED_APPS=[
+                    'byrdie',
+                    'django.contrib.staticfiles',
+                    'app',
+                ],
+                DATABASES={
+                    'default': {
+                        'ENGINE': 'django.db.backends.sqlite3',
+                        'NAME': ':memory:',
+                    }
+                },
+                TEMPLATES=[
+                    {
+                        "BACKEND": "django.template.backends.django.DjangoTemplates",
+                        "DIRS": [
+                            os.path.join(os.getcwd(), "components"),
+                            os.path.join(os.getcwd(), "templates"),
+                        ],
+                        "APP_DIRS": True,
+                    }
+                ],
+                STATIC_URL="/static/",
+                STATICFILES_DIRS=[os.path.join(os.getcwd(), "static")],
+                MIGRATION_MODULES={'app': 'migrations'},
+                SESSION_REMEMBER_ME_AGE=1209600,  # 2 weeks
+            )
+    django.setup()
     # This is a placeholder for a more sophisticated app discovery
     app_module = "app"
     # Dynamically import the app
