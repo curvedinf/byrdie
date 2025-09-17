@@ -2,6 +2,8 @@ import ast
 import inspect
 import sys
 import datetime
+from django.apps import apps
+
 # A mapping from Django field types to Python types for Pydantic
 FIELD_TYPE_MAPPING = {
     'AutoField': int,
@@ -19,6 +21,7 @@ FIELD_TYPE_MAPPING = {
     'ForeignKey': int,  # By default, we'll expose the foreign key ID
     'OneToOneField': int,
 }
+
 def parse_imports(app_path):
     """
     Parse the app.py file to extract project-specific import module names.
@@ -58,3 +61,12 @@ def find_model_subclasses(modules):
             if issubclass(cls, Model) and cls is not Model:
                 subclasses.append(cls)
     return subclasses
+
+def register_discovered_models(model_classes, app_config):
+    """
+    Register discovered model classes with Django's app registry.
+    """
+    for model in model_classes:
+        if not model._meta.app_label:
+            model._meta.app_label = 'app'
+        apps.register_model(app_config, model)
