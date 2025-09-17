@@ -1,3 +1,5 @@
+import ast
+import sys
 import datetime
 
 # A mapping from Django field types to Python types for Pydantic
@@ -17,3 +19,33 @@ FIELD_TYPE_MAPPING = {
     'ForeignKey': int,  # By default, we'll expose the foreign key ID
     'OneToOneField': int,
 }
+
+def parse_imports(app_path):
+    """
+    Parse the app.py file to extract project-specific import module names.
+    """
+    with open(app_path, 'r') as f:
+        tree = ast.parse(f.read(), filename=app_path)
+
+    imports = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                module = alias.name
+                imports.add(module)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imports.add(node.module)
+
+    # Filter out standard library, django, and byrdie
+    stdlib_modules = set(sys.stdlib_module_names)
+    project_imports = []
+    for mod in imports:
+        if mod in stdlib_modules:
+            continue
+        if mod.startswith('django.') or mod.startswith('byrdie.'):
+            continue
+        # For relative imports, the module name is already resolved without dots
+        # Prefix with package name if needed, but assuming flat structure
+        project_imports.append(mod)
+
+    return list(set(project_imports))  # Ensure unique
