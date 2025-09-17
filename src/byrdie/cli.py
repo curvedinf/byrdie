@@ -62,6 +62,7 @@ def bootstrap_byrdie():
                 errors.append(f"Failed to import {module_name}: {e}")
         if errors:
             print("Import errors occurred:", errors)
+        print(f"Dynamically imported modules: {[m.__name__ for m in imported_modules]}")
         # Discover models from all imported modules first
         discovered_models = find_model_subclasses(imported_modules)
         # If no models discovered dynamically, fall back to initialize_models
@@ -70,10 +71,12 @@ def bootstrap_byrdie():
             # Re-discover from app module after initialization
             app_discovered = find_model_subclasses([app])
             discovered_models.extend(app_discovered)
+        print(f"Discovered {len(discovered_models)} models")
         # Register discovered models
         try:
             app_config = apps.get_app_config('app')
             register_discovered_models(discovered_models, app_config)
+            print("Models registered successfully.")
         except Exception as e:
             print(f"Error registering models: {e}")
     except ImportError as e:
